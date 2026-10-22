@@ -1,0 +1,12 @@
+# Core: data handling and plots
+pandas
+numpy
+matplotlib
+
+# Notebooks
+jupyter
+ipykernel
+
+# Added later, when we reach those stages:
+# scikit-learn, statsmodels, xgboost  (forecasting)
+# scipy                               (strategic bidding)
