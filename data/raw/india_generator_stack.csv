@@ -1,0 +1,162 @@
+State,Fuel_Type,Capacity_MW,Marginal_Cost_Rs_per_MWh
+Andhra Pradesh,Wind,4461.58,0.0
+Andhra Pradesh,Solar,8144.32,0.0
+Andhra Pradesh,Large Hydro,3290.0,1000.0
+Andhra Pradesh,Small Hydro,164.51,1000.0
+Andhra Pradesh,Coal,13890.0,2000.0
+Andhra Pradesh,Biopower,615.02,3500.0
+Andhra Pradesh,Gas,1739.4,4500.0
+Andhra Pradesh,Diesel,36.8,11000.0
+Arunachal Pradesh,Solar,15.72,0.0
+Arunachal Pradesh,Large Hydro,2115.0,1000.0
+Arunachal Pradesh,Small Hydro,140.61,1000.0
+Assam,Solar,736.29,0.0
+Assam,Large Hydro,346.0,1000.0
+Assam,Small Hydro,34.11,1000.0
+Assam,Coal,750.0,2000.0
+Assam,Biopower,8.0,3500.0
+Assam,Gas,597.36,4500.0
+Bihar,Solar,493.38,0.0
+Bihar,Small Hydro,70.7,1000.0
+Bihar,Coal,10170.0,2000.0
+Bihar,Biopower,145.22,3500.0
+Chandigarh,Solar,78.85,0.0
+Chhattisgarh,Solar,2033.81,0.0
+Chhattisgarh,Large Hydro,120.0,1000.0
+Chhattisgarh,Small Hydro,108.9,1000.0
+Chhattisgarh,Coal,24093.0,2000.0
+Chhattisgarh,Biopower,289.92,3500.0
+DNH and DD,Solar,143.4,0.0
+DNH and DD,Biopower,3.75,3500.0
+Delhi,Solar,461.3,0.0
+Delhi,Biopower,85.17,3500.0
+Delhi,Gas,2100.4,4500.0
+ER Odisha,Solar,1132.43,0.0
+ER Odisha,Large Hydro,2154.55,1000.0
+ER Odisha,Small Hydro,140.63,1000.0
+ER Odisha,Coal,9950.0,2000.0
+ER Odisha,Biopower,64.22,3500.0
+Goa,Solar,95.71,0.0
+Goa,Small Hydro,0.05,1000.0
+Goa,Biopower,1.94,3500.0
+Gujarat,Wind,16613.06,0.0
+Gujarat,Solar,33763.96,0.0
+Gujarat,Large Hydro,1990.0,1000.0
+Gujarat,Small Hydro,113.3,1000.0
+Gujarat,Coal,14692.0,2000.0
+Gujarat,Lignite,1400.0,2300.0
+Gujarat,Nuclear,1840.0,3500.0
+Gujarat,Biopower,129.85,3500.0
+Gujarat,Gas,6580.31,4500.0
+HP,Solar,385.29,0.0
+HP,Large Hydro,11571.01,1000.0
+HP,Small Hydro,1013.46,1000.0
+HP,Biopower,10.2,3500.0
+Haryana,Solar,2856.46,0.0
+Haryana,Small Hydro,73.5,1000.0
+Haryana,Coal,5330.0,2000.0
+Haryana,Biopower,330.88,3500.0
+Haryana,Gas,431.59,4500.0
+J&K(UT) & Ladakh(UT),Solar,186.67,0.0
+J&K(UT) & Ladakh(UT),Large Hydro,3449.0,1000.0
+J&K(UT) & Ladakh(UT),Small Hydro,235.72,1000.0
+J&K(UT) & Ladakh(UT),Biopower,5.0,3500.0
+Kerala,Wind,71.52,0.0
+Kerala,Solar,2626.7,0.0
+Kerala,Large Hydro,2008.15,1000.0
+Kerala,Small Hydro,276.52,1000.0
+Kerala,Biopower,2.5,3500.0
+Kerala,Gas,359.58,4500.0
+Kerala,Diesel,159.96,11000.0
+MP,Wind,3686.45,0.0
+MP,Solar,6544.09,0.0
+MP,Large Hydro,2235.0,1000.0
+MP,Small Hydro,123.71,1000.0
+MP,Coal,21170.0,2000.0
+MP,Biopower,159.46,3500.0
+Manipur,Solar,17.56,0.0
+Manipur,Large Hydro,105.0,1000.0
+Manipur,Small Hydro,5.45,1000.0
+Manipur,Diesel,36.0,11000.0
+Mizoram,Solar,34.42,0.0
+Mizoram,Large Hydro,60.0,1000.0
+Mizoram,Small Hydro,45.47,1000.0
+NER Meghalaya,Solar,4.28,0.0
+NER Meghalaya,Large Hydro,322.0,1000.0
+NER Meghalaya,Small Hydro,55.03,1000.0
+NER Meghalaya,Biopower,13.8,3500.0
+NR UP,Solar,6024.43,0.0
+NR UP,Large Hydro,501.6,1000.0
+NR UP,Small Hydro,50.6,1000.0
+NR UP,Coal,30695.0,2000.0
+NR UP,Nuclear,440.0,3500.0
+NR UP,Biopower,2329.89,3500.0
+NR UP,Gas,1493.14,4500.0
+Nagaland,Solar,3.68,0.0
+Nagaland,Large Hydro,75.0,1000.0
+Nagaland,Small Hydro,35.07,1000.0
+Puducherry,Solar,92.51,0.0
+Puducherry,Gas,32.5,4500.0
+Punjab,Solar,1603.19,0.0
+Punjab,Large Hydro,1096.3,1000.0
+Punjab,Small Hydro,176.1,1000.0
+Punjab,Coal,5680.0,2000.0
+Punjab,Biopower,582.59,3500.0
+Rajasthan,Wind,5541.24,0.0
+Rajasthan,Solar,44135.33,0.0
+Rajasthan,Large Hydro,412.5,1000.0
+Rajasthan,Small Hydro,23.85,1000.0
+Rajasthan,Coal,9244.0,2000.0
+Rajasthan,Lignite,1580.0,2300.0
+Rajasthan,Nuclear,1780.0,3500.0
+Rajasthan,Biopower,222.42,3500.0
+Rajasthan,Gas,1022.83,4500.0
+SR Karnataka,Wind,8915.24,0.0
+SR Karnataka,Solar,11635.52,0.0
+SR Karnataka,Large Hydro,3689.2,1000.0
+SR Karnataka,Small Hydro,1284.73,1000.0
+SR Karnataka,Coal,9480.0,2000.0
+SR Karnataka,Nuclear,880.0,3500.0
+SR Karnataka,Biopower,1917.05,3500.0
+SR Karnataka,Gas,370.05,4500.0
+SR Karnataka,Diesel,25.2,11000.0
+Sikkim,Solar,7.56,0.0
+Sikkim,Large Hydro,2282.0,1000.0
+Sikkim,Small Hydro,55.11,1000.0
+Tamil Nadu,Wind,12303.79,0.0
+Tamil Nadu,Solar,14166.47,0.0
+Tamil Nadu,Large Hydro,2203.2,1000.0
+Tamil Nadu,Small Hydro,123.05,1000.0
+Tamil Nadu,Coal,11392.5,2000.0
+Tamil Nadu,Lignite,3640.0,2300.0
+Tamil Nadu,Nuclear,2440.0,3500.0
+Tamil Nadu,Biopower,1055.12,3500.0
+Tamil Nadu,Gas,844.58,4500.0
+Tamil Nadu,Diesel,211.7,11000.0
+Telangana,Wind,128.1,0.0
+Telangana,Solar,5165.1,0.0
+Telangana,Large Hydro,2405.6,1000.0
+Telangana,Small Hydro,89.67,1000.0
+Telangana,Coal,12580.0,2000.0
+Telangana,Biopower,242.11,3500.0
+Tripura,Solar,43.04,0.0
+Tripura,Small Hydro,16.01,1000.0
+Tripura,Gas,1067.6,4500.0
+Uttarakhand,Solar,891.87,0.0
+Uttarakhand,Large Hydro,5035.35,1000.0
+Uttarakhand,Small Hydro,233.82,1000.0
+Uttarakhand,Biopower,161.49,3500.0
+Uttarakhand,Gas,664.0,4500.0
+WR Maharashtra,Wind,6415.91,0.0
+WR Maharashtra,Solar,20347.66,0.0
+WR Maharashtra,Large Hydro,3047.0,1000.0
+WR Maharashtra,Small Hydro,384.28,1000.0
+WR Maharashtra,Coal,23316.01,2000.0
+WR Maharashtra,Nuclear,1400.0,3500.0
+WR Maharashtra,Biopower,2999.97,3500.0
+WR Maharashtra,Gas,2819.08,4500.0
+West Bengal,Solar,363.5,0.0
+West Bengal,Large Hydro,1341.2,1000.0
+West Bengal,Small Hydro,98.5,1000.0
+West Bengal,Coal,13895.0,2000.0
+West Bengal,Biopower,351.86,3500.0
