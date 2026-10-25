@@ -9,6 +9,8 @@ This project simulates how a real electricity market clears prices using merit-o
 1. Can next-day demand or prices be forecasted using historical patterns and seasonal features?
 2. What happens to prices and dispatch outcomes when large generators bid strategically instead of at true marginal cost — where does market power show up, and how much does it cost consumers?
 
+Question 2 is Part 3 of the project; its plan (firms, the bidding game, how Parts 1 and 2 feed it) is in [`docs/part3_plan.md`](docs/part3_plan.md).
+
 ## Tech Stack
 
 - **Language:** Python
