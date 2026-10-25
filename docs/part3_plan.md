@@ -32,8 +32,8 @@ Part 3 needs, for each day, a **scenario**: demand by state + availability by (s
 | Part 1 | `LossDispatchModel` (LP, losses, locational prices) | Clearing the market for every bid tried | Done |
 | Part 1 | Generator stack + coal tiers (`load_generators`) | True costs; firms' blocks | Done |
 | Part 1 | `seasonal_*_daily.csv` | Temporary competitive benchmark | Done |
-| Part 2, Stage 2 | `availability_daily.csv` (`Date, State, Fuel_Type, Factor`), `daily_availability_lookup`, `solve()` with (state, fuel) keys | Actual supply each day; a firm withholds a share of its weather-based available MW | In progress (`part2-forecasting`) |
-| Part 2, Stage 2 | `weather_{state,flows,national}_daily.csv` | **Competitive benchmark (M0)**, replacing `seasonal_*` | In progress |
+| Part 2, Stage 2 | `availability_daily.csv` (`Date, State, Fuel_Type, Factor`), `daily_availability_lookup`, `solve()` with (state, fuel) keys | Actual supply each day; a firm withholds a share of its weather-based available MW | Done on `part2-forecasting` (not yet in main) |
+| Part 2, Stage 2 | `dispatch_weather_{state,flows,national}_daily.csv` (Part 2's "actual" prices) | **Competitive benchmark (M0)**, replacing `seasonal_*` | Done on `part2-forecasting` |
 | Part 2, O5 | Tightness index `(available − demand) / demand` | A firm is pivotal when its share of demand > tightness (RSI < 1) | Planned |
 | Part 2, O1 + O4 | D+1 state demand forecast with a range | Stage 6: firms bid on the forecast, the market clears on actual | Planned |
 | Part 2, O2 | D+1 availability forecast | Stage 6: forecast scenario | Planned |
@@ -46,7 +46,7 @@ Part 3 needs, for each day, a **scenario**: demand by state + availability by (s
 
 **Order of work:**
 1. **Now:** Stages 0, 1 and the toy case of Stage 3 can start on Part 1's seasonal scenario
-2. **After Part 2 Stage 2 is merged:** add `costs=` to `solve()` on top of Part 2's change to the same function (not before, so the function isn't edited in two places at once); switch the benchmark to `weather_*`; run Stages 2–5 on weather-based actuals
+2. **After Part 2 Stage 2 is merged:** add `costs=` to `solve()` on top of Part 2's change to the same function (not before, so the function isn't edited in two places at once); switch the benchmark to `dispatch_weather_*`; run Stages 2–5 on weather-based actuals
 3. **After Part 2's forecasts (O1–O5):** Stage 6
 4. **Feedback to Part 2:** Part 3's list of pivotal days is where forecast errors cost the most; Part 2's error analysis by situation should report errors on those days
 
