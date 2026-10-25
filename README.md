@@ -52,18 +52,21 @@ Run the checks for `src/dispatch.py`:
 | `01_data_cleaning` | Cleans the raw daily state demand data |
 | `02_merit_order` | Builds the dispatch models step by step: toy merit order → real stack → LP → copper-plate trading → distance-based losses |
 | `03_dispatch_all_days` | Runs the loss model with coal tiers for all 1,917 days and saves the results to `data/processed/` |
+| `04_seasonal_availability` | Re-runs it with monthly solar, wind and hydro availability and compares with notebook 03 |
+
+Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
 ## Dispatch model (Part 1)
 
 State-level linear program, solved with `scipy.optimize.linprog` (HiGHS):
 
-- **Supply:** 161 state × fuel generator rows; available capacity = nameplate × availability factor
+- **Supply:** 161 state × fuel generator rows; available capacity = nameplate × availability factor (constant, or monthly for solar, wind and hydro in the seasonal run)
 - **Costs:** coal cost by state tier (pithead 1,600 · near mines 2,200 · inland 2,800 · coastal/imported 3,800 Rs/MWh), other fuels at fixed costs
 - **Trading:** any state can trade with any other; no line limits
 - **Losses:** min(0.5% + 4% per 1,000 km × 1.2 routing factor, 10%), distance between state capitals
 - **Prices:** the shadow price of each state's supply = demand constraint (locational price)
 
-Main limitations: daily peak only, availability factors fixed across seasons, coal costs by state tier rather than by plant, no transmission limits, DVC excluded (no generator data).
+Main limitations: daily peak only; seasonal factors are assumed shapes, monthly (no time of day), with coal constant all year; coal costs by state tier rather than by plant; no transmission limits; DVC excluded (no generator data).
 
 ## Workflow
 
@@ -82,3 +85,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 5:** Real generator stack with availability factors (nameplate solar made the price 0). National dispatch over 1,917 days; state surplus/deficit and regional analysis showed the North importing ~17 GW from the West at peak.
 - **Day 6:** Rewrote dispatch as a linear program and validated it against merit order (0 disagreements over 1,917 days). Built a copper-plate trading model (one price everywhere) and a distance-based loss model that gives locational prices; realised losses of 3.4% match India's ~3–4%.
 - **Day 7:** Added coal cost tiers by state, moved the models into `src/dispatch.py` with pytest checks, and ran the loss model for all 1,917 days (8.8 s). Average price now ranges Rs 1,650–3,770 instead of sitting at Rs 2,000. Part 1 complete.
+- **Day 8:** Fixed 1,027 column-shifted DNH rows and 7 corrupted HP rows in cleaning: DD & DNH demand had been frozen and its demand counted as shortage (real national peak shortage 412 MW, not ~1 GW). Added seasonal availability: monsoon prices fall 120–170 Rs/MWh and winter prices rise 110–245, with summer roughly unchanged. Started `docs/model_log.md` and `data/README.md` as running references.

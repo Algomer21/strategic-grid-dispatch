@@ -8,8 +8,9 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from dispatch import (LossDispatchModel, haversine_km, load_coordinates, load_demand,
-                      load_generators, loss_matrix, lp_dispatch, merit_order_dispatch)
+from dispatch import (AVAILABILITY, LossDispatchModel, availability_for_month, haversine_km,
+                      load_coordinates, load_demand, load_generators, load_seasonal_availability,
+                      loss_matrix, lp_dispatch, merit_order_dispatch)
 
 TOY = pd.DataFrame({"name": ["Gas", "Solar", "Coal"],
                     "capacity_mw": [50, 40, 100],
@@ -56,11 +57,13 @@ def day():
     return dem.loc["2024-07-21"], states, loss
 
 
-def test_loss_model_reproduces_notebook_result(day):
-    # Flat coal cost, 21 Jul 2024: the result validated in notebook 02
+def test_loss_model_reference_result(day):
+    # Flat coal cost, 21 Jul 2024. Notebook 02 validated Rs 296,732,641.83/h on the
+    # data before the DD & DNH fix (demand frozen at 1,237 MW); with the corrected
+    # 1,239 MW the same model gives the value below (see docs/model_log.md, step 9)
     demand, states, loss = day
     out = LossDispatchModel(load_generators(coal_tiers=False), loss, states).solve(demand)
-    assert out["total_cost"] == pytest.approx(296_732_641.83, rel=1e-9)
+    assert out["total_cost"] == pytest.approx(296_736_690.64, rel=1e-9)
 
 
 def test_zero_loss_gives_one_price(day):
@@ -86,3 +89,26 @@ def test_energy_balance_and_price_logic(day):
 
     # No pair trades in both directions
     assert fl.merge(fl, left_on=["From", "To"], right_on=["To", "From"]).empty
+
+
+def test_seasonal_factors_average_to_constant_factors():
+    # Same yearly supply as the constant model, only timed differently
+    seasonal = load_seasonal_availability()
+    assert list(seasonal.index) == list(range(1, 13))
+    for fuel in seasonal.columns:
+        assert seasonal[fuel].mean() == pytest.approx(AVAILABILITY[fuel])
+
+
+def test_availability_for_month_keeps_other_fuels_constant():
+    july = availability_for_month(load_seasonal_availability(), 7)
+    assert july["Large Hydro"] == 0.65
+    assert july["Coal"] == AVAILABILITY["Coal"]
+    assert set(july) == set(AVAILABILITY)
+
+
+def test_constant_availability_override_changes_nothing(day):
+    # Passing the default factors explicitly must give the same answer as no override
+    demand, states, loss = day
+    model = LossDispatchModel(load_generators(), loss, states)
+    assert model.solve(demand, AVAILABILITY)["total_cost"] == pytest.approx(model.solve(demand)["total_cost"])
+

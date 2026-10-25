@@ -22,7 +22,10 @@ PROCESSED = ROOT / "data" / "processed"
 # Assumptions
 # ---------------------------------------------------------------------------
 
-# Share of nameplate capacity available at the daily peak (same in every season)
+# Share of nameplate capacity available at the daily peak. Used all year in the
+# constant model; in the seasonal model, solar, wind and hydro are replaced month
+# by month from data/raw/seasonal_availability.csv (same 12-month average) and
+# every other fuel, including coal, keeps the value here.
 AVAILABILITY = {
     "Solar": 0.25, "Wind": 0.30, "Large Hydro": 0.45, "Small Hydro": 0.40,
     "Coal": 0.75, "Lignite": 0.70, "Nuclear": 0.80, "Biopower": 0.50,
@@ -81,6 +84,16 @@ def load_demand(column="Max Demand Met"):
 def load_coordinates():
     """State capital coordinates, indexed by state name."""
     return pd.read_csv(RAW / "state_coordinates.csv").set_index("State")
+
+
+def load_seasonal_availability():
+    """Monthly availability factors for weather-driven fuels: rows = month 1-12, columns = fuel."""
+    return pd.read_csv(RAW / "seasonal_availability.csv").set_index("Month")
+
+
+def availability_for_month(seasonal, month, base=AVAILABILITY):
+    """Availability for every fuel in one month: seasonal fuels from `seasonal`, the rest from `base`."""
+    return {**base, **seasonal.loc[month].to_dict()}
 
 
 # ---------------------------------------------------------------------------
@@ -248,18 +261,32 @@ class LossDispatchModel:
                        [(0, None)] * nS +
                        [(0, None)] * nP)
 
-    def solve(self, demand):
-        """Dispatch one day. `demand` is a Series indexed by state (MW)."""
+    def solve(self, demand, availability=None):
+        """
+        Dispatch one day. `demand` is a Series indexed by state (MW).
+
+        `availability` (dict fuel -> factor) overrides the plant limits for this day
+        only, e.g. a month's seasonal factors. None keeps the limits the model was
+        built with. Only the bounds change; the constraint matrix is reused.
+        """
         b_eq = demand.reindex(self.states).to_numpy(dtype=float)
         if np.isnan(b_eq).any():
             raise ValueError("Demand missing for some states")
 
-        res = linprog(c=self.c, A_eq=self.A_eq, b_eq=b_eq, bounds=self.bounds, method="highs")
+        bounds = self.bounds
+        if availability is not None:
+            cap = self.gen["Capacity_MW"] * self.gen["Fuel_Type"].map(availability)
+            if cap.isna().any():
+                raise ValueError("Availability missing for some fuels")
+            bounds = [(0, c) for c in cap] + self.bounds[len(self.gen):]
+
+        res = linprog(c=self.c, A_eq=self.A_eq, b_eq=b_eq, bounds=bounds, method="highs")
         if not res.success:
             raise RuntimeError(f"LP failed: {res.message}")
 
         x = res.x
-        generation = self.gen.assign(Dispatch_MW=x[:self.u_start])
+        generation = self.gen.assign(Available_MW=[ub for _, ub in bounds[:self.u_start]],
+                                     Dispatch_MW=x[:self.u_start])
 
         sent = x[self.f_start:]
         used = sent > 1e-6
@@ -283,9 +310,12 @@ class LossDispatchModel:
         return {"states": states, "flows": flows, "generation": generation, "total_cost": res.fun}
 
 
-def run_all_days(model, demand_wide):
+def run_all_days(model, demand_wide, seasonal=None):
     """
     Solve `model` for every date in `demand_wide`.
+
+    seasonal=None uses the model's constant availability every day; pass the table
+    from load_seasonal_availability() to use each date's monthly factors.
 
     Returns three tables: state_daily (date x state), flows_daily (date x trade)
     and national_daily (one row per date, incl. generation by fuel).
@@ -293,7 +323,8 @@ def run_all_days(model, demand_wide):
     state_rows, flow_rows, national_rows = [], [], []
 
     for date, demand in demand_wide.iterrows():
-        out = model.solve(demand)
+        availability = None if seasonal is None else availability_for_month(seasonal, date.month)
+        out = model.solve(demand, availability)
         st, fl, gn = out["states"], out["flows"], out["generation"]
 
         state_rows.append(st.reset_index().assign(Date=date))
