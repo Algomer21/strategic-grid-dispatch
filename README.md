@@ -39,7 +39,7 @@ python3 -m venv .venv
 
 Open the notebooks and pick the **Python (grid-dispatch)** kernel. Run them in number order.
 
-Run the checks for `src/dispatch.py`, `src/forecast.py` and `src/weather.py`:
+Run the checks for everything in `src/`:
 
 ```bash
 .venv/bin/python -m pytest
@@ -55,6 +55,7 @@ Run the checks for `src/dispatch.py`, `src/forecast.py` and `src/weather.py`:
 | `04_seasonal_availability` | Re-runs it with monthly solar, wind and hydro availability and compares with notebook 03 |
 | `05_forecast_setup` | Part 2 set-up: time split, error metrics, naive baselines (persistence, last week) for national and state demand |
 | `06_weather_data` | Downloads daily weather for 151 points (demand cities, solar parks, wind zones, dams) from Open-Meteo, checks it, and combines it into one row per state and purpose |
+| `07_weather_availability` | Turns weather into daily solar, wind and hydro availability per state and re-runs dispatch: the "actual" prices for Part 2 |
 
 Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
@@ -62,13 +63,13 @@ Every modelling step (what, why, assumptions, checks, result) is recorded in [`d
 
 State-level linear program, solved with `scipy.optimize.linprog` (HiGHS):
 
-- **Supply:** 161 state × fuel generator rows; available capacity = nameplate × availability factor (constant, or monthly for solar, wind and hydro in the seasonal run)
+- **Supply:** 161 state × fuel generator rows; available capacity = nameplate × availability factor (constant; monthly for solar, wind and hydro in the seasonal run; daily from each state's weather in the weather run, which Part 2 uses as the actual prices)
 - **Costs:** coal cost by state tier (pithead 1,600 · near mines 2,200 · inland 2,800 · coastal/imported 3,800 Rs/MWh), other fuels at fixed costs
 - **Trading:** any state can trade with any other; no line limits
 - **Losses:** min(0.5% + 4% per 1,000 km × 1.2 routing factor, 10%), distance between state capitals
 - **Prices:** the shadow price of each state's supply = demand constraint (locational price)
 
-Main limitations: daily peak only; seasonal factors are assumed shapes, monthly (no time of day), with coal constant all year; coal costs by state tier rather than by plant; no transmission limits; DVC excluded (no generator data).
+Main limitations: daily peak only; renewable availability from assumed shapes (seasonal run) or physical rules not fitted to measured generation (weather run), with no time of day and coal constant all year; coal costs by state tier rather than by plant; no transmission limits; DVC excluded (no generator data).
 
 ## Workflow
 
@@ -90,3 +91,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 8:** Fixed 1,027 column-shifted DNH rows and 7 corrupted HP rows in cleaning: DD & DNH demand had been frozen and its demand counted as shortage (real national peak shortage 412 MW, not ~1 GW). Added seasonal availability: monsoon prices fall 120–170 Rs/MWh and winter prices rise 110–245, with summer roughly unchanged. Started `docs/model_log.md` and `data/README.md` as running references.
 - **Day 9:** Planned Part 2 (day-ahead forecasting of state demand and weather-based availability, priced through the dispatch model, linked to Part 3's bidders). Set up the time split, metrics and naive baselines: "same as yesterday" is already 2.26% off nationally (4.9 GW), and 2.4–6.7% for states. Models must beat it by 20%.
 - **Day 10:** Chose 151 weather points by purpose (population-weighted cities for demand; solar parks, wind zones and dams for supply) and downloaded 5 years of daily weather from Open-Meteo. Wind's assumed seasonal shape matches the weather well; solar's overstates winter and understates the monsoon; rain peaks a month before hydro output, so reservoirs need a running total. Delhi's demand is U-shaped in temperature. Combined the points into states (population-weighted for demand).
+- **Day 11:** Turned weather into daily availability (solar with panel heat loss, wind through a power curve on hourly wind, hydro as leaky buckets with Himalayan snowmelt), each state matched to its Part 1 average. The new dispatch run is Part 2's "actual" price: pre-monsoon is dearer and Aug–Oct cheaper than the seasonal run, and day-to-day price swings are ~40% larger. Price persistence is 4.6% off, twice demand's error.

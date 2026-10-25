@@ -132,6 +132,10 @@ Notes:
 | seasonal_flows_daily.csv | 04_seasonal_availability | Day × trade | As dispatch_flows_daily, with seasonal availability |
 | seasonal_national_daily.csv | 04_seasonal_availability | Day | As dispatch_national_daily, with seasonal availability |
 | weather_state_daily.csv | 06_weather_data | Day × state × purpose (101 groups) | Weather combined from the points (details below) |
+| availability_daily.csv | 07_weather_availability | Day × state × weather fuel (93 pairs) | Daily availability factor from the weather (details below) |
+| dispatch_weather_state_daily.csv | 07_weather_availability | Day × state (32) | **Weather-availability run: the "actual" prices for Part 2.** Same columns as dispatch_state_daily |
+| dispatch_weather_flows_daily.csv | 07_weather_availability | Day × trade | As dispatch_flows_daily, weather-availability run |
+| dispatch_weather_national_daily.csv | 07_weather_availability | Day | As dispatch_national_daily, weather-availability run |
 
 ### weather_state_daily.csv
 Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
@@ -144,3 +148,16 @@ Daily weather per state and purpose: the weighted average of that state's points
 | (weather columns) | Same variables and units as `raw/weather_daily.csv` |
 
 Weights: demand points by Census 2011 city population (`raw/city_population.csv`); supply points equal (no plant-level capacity); single points unchanged. Averaged day by day.
+
+### availability_daily.csv
+Share of nameplate capacity available each day for solar, wind, large hydro and small hydro, for every state with capacity of that fuel: 93 state-fuel pairs × 1,948 days (1 Dec 2019 – 31 Mar 2025) = 181,164 rows. Made by `build_availability` in `src/availability.py` (model log Step 15).
+
+| Column | Meaning |
+|---|---|
+| Date | Calendar day (IST) |
+| State | As in the demand data |
+| Fuel_Type | Solar, Wind, Large Hydro or Small Hydro |
+| Factor | 0–1, share of capacity available |
+
+How: solar from radiation with panel heat loss; wind from a power curve on hourly 100 m wind (hourly data cached in `data/cache/wind_hourly/`, not in git; ~1 h to re-download); hydro from leaky buckets of rain (+ snowmelt in 5 Himalayan states). Each state's 2020–24 mean is scaled to the Part 1 factor (solar 0.25, wind 0.30, large hydro 0.45, small hydro 0.40) and capped at 1.0. Coal and other fuels are not in the table: they keep their constant factors.
+

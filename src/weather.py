@@ -154,6 +154,68 @@ def fetch_all(points, cache_dir=CACHE, fetch=fetch_point, verbose=True):
 
 
 # ---------------------------------------------------------------------------
+# Hourly wind (for the power curve, which must be applied hour by hour)
+# ---------------------------------------------------------------------------
+
+HOURLY_WIND = "wind_speed_100m"   # km/h
+CACHE_HOURLY = ROOT / "data" / "cache" / "wind_hourly"
+
+
+def parse_hourly(payload, start, end, variable=HOURLY_WIND):
+    """Hourly Open-Meteo answer -> DataFrame: Time + variable. Raises on missing hours or empty values."""
+    if "hourly" not in payload:
+        raise ValueError(f"No hourly data in answer: {payload.get('reason', payload)}")
+    df = pd.DataFrame(payload["hourly"])
+    df["Time"] = pd.to_datetime(df.pop("time"))
+    expected = pd.date_range(start, pd.Timestamp(end) + pd.Timedelta(hours=23), freq="h")
+    if len(df) != len(expected) or not (df["Time"].to_numpy() == expected.to_numpy()).all():
+        raise ValueError(f"Expected {len(expected)} hours {start}..{end}, got {len(df)}")
+    if df[variable].isna().any():
+        raise ValueError(f"{df[variable].isna().sum()} empty hours")
+    return df[["Time", variable]]
+
+
+def fetch_hourly_point(lat, lon, start=START, end=END, variable=HOURLY_WIND):
+    """Hourly download for one location, with the same retries as fetch_point."""
+    params = {"latitude": lat, "longitude": lon, "start_date": start, "end_date": end,
+              "hourly": variable, "timezone": TIMEZONE}
+    problem = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(ARCHIVE_URL, params=params, timeout=120)
+            if response.status_code == 429 or response.status_code >= 500:
+                problem = f"HTTP {response.status_code} {response.text[:120]}"
+            else:
+                response.raise_for_status()
+                return parse_hourly(response.json(), start, end, variable)
+        except (requests.ConnectionError, requests.Timeout, requests.JSONDecodeError) as e:
+            problem = type(e).__name__
+        print(f"  {lat}, {lon}: {problem}, waiting {RETRY_WAIT_S} s (try {attempt + 1}/{MAX_RETRIES})")
+        time.sleep(RETRY_WAIT_S)
+    raise RuntimeError(f"Download failed {MAX_RETRIES} times ({lat}, {lon}): {problem}")
+
+
+def fetch_all_hourly(points, cache_dir=CACHE_HOURLY, fetch=fetch_hourly_point, verbose=True):
+    """Hourly wind for every point, one long table: Point_ID, Time, wind_speed_100m. Cached like fetch_all."""
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    out = []
+    for p in points.itertuples():
+        path = cache_file(p.Lat, p.Lon, cache_dir)
+        if path.exists():
+            df = pd.read_csv(path, parse_dates=["Time"])
+        else:
+            if verbose:
+                print(f"downloading hourly {p.Point_ID}")
+            df = fetch(p.Lat, p.Lon)
+            df.to_csv(path, index=False)
+            time.sleep(PAUSE_S if fetch is fetch_hourly_point else 0)
+        out.append(df.assign(Point_ID=p.Point_ID))
+    out = pd.concat(out, ignore_index=True)
+    return out[["Point_ID", "Time", HOURLY_WIND]]
+
+
+# ---------------------------------------------------------------------------
 # Points -> states
 # ---------------------------------------------------------------------------
 

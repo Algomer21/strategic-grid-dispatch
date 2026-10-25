@@ -185,3 +185,34 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - Population weighting vs a simple average changes daily max temperature by ~1 °C on average in Tamil Nadu (1.01) and Maharashtra (0.95), where coastal Chennai and Mumbai dominate; under 0.2 °C in UP and MP, where the cities have similar weather
 
 **Stage 1 complete.** Next, Stage 2: weather → daily availability factors for solar, wind and hydro, and a new dispatch run for the "actual" prices.
+
+### Step 15 — Weather-based availability and the new "actual" prices (2026-10-25)
+**Why:** Part 2 forecasts supply as well as demand, and Step 10's monthly factors have nothing to forecast. Availability now follows each state's daily weather, and the dispatch re-run with it becomes the "actual" price that forecasts are scored against (Step 11, decision 1).
+
+**Decisions (Stage 2, asked one at a time):**
+1. **Physics-shaped** rules give each fuel's daily shape
+2. **Level matched to Part 1:** scaled so the long-run average equals the Part 1 factor (solar 0.25, wind 0.30, large hydro 0.45, small hydro 0.40); capped at 1.0
+3. Hydro: **two-speed leaky buckets** of water: half-life 60 days (large hydro), 10 days (small hydro); started with a year of data (spin-up)
+4. **Degree-day snowmelt** for HP, Uttarakhand, J&K, Sikkim, Arunachal: melt ∝ max(dam mean temp − 15 °C, 0), scaled to 50% of yearly water
+5. Solar includes **panel heat loss:** −0.4%/°C above 25 °C; panel = air max + 25 °C × (sunlight / 800 W/m²), daily radiation over 10 sunlit hours
+6. Wind: **hourly 100 m wind** for the 17 wind points; generic power curve (cut-in 3, rated 12, cut-out 25 m/s, cubic rise) applied per hour, averaged per day, then over the state's points
+7. Level matched **per state** (each state's 2020–24 mean = Part 1 factor), not as an India average
+
+**Code:** `src/availability.py` (rules, `match_level`, `build_availability`), 10 tests with hand answers (power curve at 7.5 m/s = 0.232; 46 °C + 600 W/m² → 15.9% heat loss; half-life; melt share; cap). `src/weather.py`: hourly download (`fetch_all_hourly`, cache `data/cache/wind_hourly/`). `src/dispatch.py`: `solve()` accepts (state, fuel) keys, `daily_availability_lookup`, `run_all_days(daily=...)`; 2 tests incl. "same values per state change nothing". 55 tests in total.
+
+**Problems met:** (1) a test I wrote was wrong: with a flat block of monsoon rain every bucket peaks on the last rainy day, so it couldn't show the lag; replaced by a smooth seasonal inflow. (2) **The first run overwrote `weather_state_daily.csv`** (the Stage 1 weather) because the dispatch outputs were named `weather_{state,flows,national}_daily.csv`. Restored from git; the dispatch outputs are now `dispatch_weather_*`.
+
+**Checks:** factors exist for exactly the 93 state-fuel pairs with capacity; all between 0 and 1; every state's 2020–24 mean equals its Part 1 factor (< 1e-6); HP melt share 50%; dispatch: no unserved days, demand identical to the data, generation = demand + losses every day; losses 3.77% of traded power.
+
+**Results (`07_weather_availability.ipynb`):**
+- Cap binds on 3% of days (large hydro), 5% (wind), 14% (small hydro), never for solar
+- Wind: hourly curve gives 13% more output than the curve on the daily mean
+- Solar heat loss ~16% on heatwave days, ~4% in January, but **no heatwave dip** in availability: May 2024's clear skies and strong sun offset it (my expectation was wrong)
+- India large hydro lowest Mar–May (0.23–0.25 vs Step 10's 0.27–0.35), **peaks in September (0.75)**, a month later than Step 10; solar higher in the monsoon (0.23–0.24 vs 0.18), lower in winter (0.20–0.22 vs 0.25–0.26)
+- **Prices vs the seasonal run (2020–24):** average almost unchanged (Rs 2,667 vs 2,658/MWh), system cost +0.5%. **April +156, May +136** (low reservoirs, 7–10 GW more coal); **Aug −185, Sep −88, Oct −92** (full reservoirs, monsoon solar, 5–12 GW less coal); Dec +100, Jan +56 (weak winter solar)
+- **Day-to-day volatility up ~40%:** mean daily change 74 vs 53 Rs/MWh, std 422 vs 356; prices jump between coal-tier levels (~2,200 / ~2,750 / ~3,450)
+- **Price baselines (test 2024 – Mar 2025, deferred from Step 12):** persistence MAE 142 Rs/MWh, **MAPE 4.58%**, RMSE 261; last week MAPE 6.92%. Price is about twice as hard as national demand, and RMSE/MAE = 1.8 shows the errors come as jumps
+
+**Outputs:** `data/processed/availability_daily.csv`; `data/processed/dispatch_weather_{state,flows,national}_daily.csv` — the "actual" prices for Part 2. Constant (`dispatch_*`) and seasonal (`seasonal_*`) runs are kept for comparison.
+
+**Limitations:** the shapes are physical rules, not fitted to measured generation (CEA data could calibrate them); snowmelt share and threshold are single values for five states; hydro buckets ignore reservoir operating rules and pumped storage; daily averages, not the peak hour (Step 11, decision 3).
