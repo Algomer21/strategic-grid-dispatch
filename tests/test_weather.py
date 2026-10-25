@@ -7,7 +7,8 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from weather import DAILY_VARIABLES, check_weather, fetch_all, load_points, parse_daily
+from weather import (DAILY_VARIABLES, check_weather, combine_points, fetch_all, load_points,
+                     load_population, parse_daily, point_weights)
 
 START, END = "2024-05-28", "2024-05-30"
 
@@ -72,3 +73,38 @@ def test_points_file():
     assert p["Point_ID"].is_unique
     assert set(p["Purpose"]) == {"demand", "solar", "wind", "hydro"}
     assert p["Lat"].between(6, 37).all() and p["Lon"].between(68, 98).all()
+
+
+# hand example: state A has two demand cities (population 3 : 1) and two solar points,
+# state B has one demand point
+POINTS = pd.DataFrame({"Point_ID": ["d_a1", "d_a2", "s_a1", "s_a2", "d_b"],
+                       "State": ["A", "A", "A", "A", "B"],
+                       "Purpose": ["demand", "demand", "solar", "solar", "demand"]})
+POP = pd.DataFrame({"Point_ID": ["d_a1", "d_a2"], "Population_2011": [3_000_000, 1_000_000]})
+
+
+def test_point_weights_hand_answers():
+    w = point_weights(POINTS, POP).set_index("Point_ID")["Weight"]
+    assert w["d_a1"] == pytest.approx(0.75) and w["d_a2"] == pytest.approx(0.25)   # 3 : 1
+    assert w["s_a1"] == pytest.approx(0.5) and w["s_a2"] == pytest.approx(0.5)     # equal
+    assert w["d_b"] == 1.0                                                          # single point
+
+
+def test_point_weights_need_population_for_multi_city_states():
+    with pytest.raises(ValueError):
+        point_weights(POINTS, POP.iloc[:1])
+
+
+def test_combine_points_hand_answer():
+    temps = {"d_a1": 40.0, "d_a2": 20.0, "s_a1": 10.0, "s_a2": 30.0, "d_b": 25.0}
+    weather = pd.DataFrame([{"Point_ID": pid, "Date": pd.Timestamp("2024-05-29"),
+                             **{v: t for v in DAILY_VARIABLES}} for pid, t in temps.items()])
+    out = combine_points(weather, POINTS, POP).set_index(["State", "Purpose"])["temperature_2m_max"]
+    assert out[("A", "demand")] == pytest.approx(35.0)      # 0.75 x 40 + 0.25 x 20
+    assert out[("A", "solar")] == pytest.approx(20.0)       # (10 + 30) / 2
+    assert out[("B", "demand")] == pytest.approx(25.0)      # unchanged
+
+
+def test_real_weights_sum_to_one():
+    w = point_weights(load_points(), load_population())
+    assert w.groupby(["State", "Purpose"])["Weight"].sum().round(12).eq(1).all()

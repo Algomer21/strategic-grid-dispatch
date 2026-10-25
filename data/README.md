@@ -131,3 +131,16 @@ Notes:
 | seasonal_state_daily.csv | 04_seasonal_availability | Day × state (32) | As dispatch_state_daily, with seasonal availability |
 | seasonal_flows_daily.csv | 04_seasonal_availability | Day × trade | As dispatch_flows_daily, with seasonal availability |
 | seasonal_national_daily.csv | 04_seasonal_availability | Day | As dispatch_national_daily, with seasonal availability |
+| weather_state_daily.csv | 06_weather_data | Day × state × purpose (101 groups) | Weather combined from the points (details below) |
+
+### weather_state_daily.csv
+Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
+
+| Column | Meaning |
+|---|---|
+| Date | Calendar day (IST), 1 Dec 2019 – 31 Mar 2025 |
+| State | As in the demand data |
+| Purpose | `demand`, `solar`, `wind` or `hydro` |
+| (weather columns) | Same variables and units as `raw/weather_daily.csv` |
+
+Weights: demand points by Census 2011 city population (`raw/city_population.csv`); supply points equal (no plant-level capacity); single points unchanged. Averaged day by day.

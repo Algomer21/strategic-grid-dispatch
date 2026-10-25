@@ -16,6 +16,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
+PROCESSED = ROOT / "data" / "processed"
 CACHE = ROOT / "data" / "cache" / "weather"
 
 # ---------------------------------------------------------------------------
@@ -150,6 +151,55 @@ def fetch_all(points, cache_dir=CACHE, fetch=fetch_point, verbose=True):
     out = [weather[(p.Lat, p.Lon)].assign(Point_ID=p.Point_ID) for p in points.itertuples()]
     out = pd.concat(out, ignore_index=True)
     return out[["Point_ID", "Date"] + [c for c in out.columns if c not in ("Point_ID", "Date")]]
+
+
+# ---------------------------------------------------------------------------
+# Points -> states
+# ---------------------------------------------------------------------------
+
+def load_population():
+    """Census 2011 population of the demand cities in multi-city states."""
+    return pd.read_csv(RAW / "city_population.csv")
+
+
+def point_weights(points, population):
+    """
+    Weight of each point within its (State, Purpose) group; weights sum to 1 per group.
+
+    Demand points are weighted by city population (more people, more load); a state
+    with one demand point gets weight 1. Supply points get equal weights: there is
+    no plant-level capacity data to weight them by.
+    """
+    w = points[["Point_ID", "State", "Purpose"]].merge(
+        population[["Point_ID", "Population_2011"]], on="Point_ID", how="left")
+    group_size = w.groupby(["State", "Purpose"])["Point_ID"].transform("size")
+
+    is_demand = w["Purpose"] == "demand"
+    needs_pop = is_demand & (group_size > 1)
+    if w.loc[needs_pop, "Population_2011"].isna().any():
+        missing = w.loc[needs_pop & w["Population_2011"].isna(), "Point_ID"].tolist()
+        raise ValueError(f"No population for demand points: {missing}")
+
+    w["Raw"] = 1.0
+    w.loc[needs_pop, "Raw"] = w.loc[needs_pop, "Population_2011"]
+    w["Weight"] = w["Raw"] / w.groupby(["State", "Purpose"])["Raw"].transform("sum")
+    return w[["Point_ID", "State", "Purpose", "Weight"]]
+
+
+def combine_points(weather, points, population, variables=DAILY_VARIABLES):
+    """
+    One weather row per Date, State and Purpose: the weighted average of its points.
+
+    Averages are taken per day, so a heatwave in one city still shows up (diluted
+    by its weight) in that day's state value.
+    """
+    weights = point_weights(points, population)
+    df = weather.merge(weights, on="Point_ID", how="inner")
+    if len(df) != len(weather):
+        raise ValueError("Some weather rows have no point in the weights table")
+    df[variables] = df[variables].mul(df["Weight"], axis=0)
+    out = df.groupby(["Date", "State", "Purpose"], as_index=False)[variables].sum()
+    return out.sort_values(["State", "Purpose", "Date"], ignore_index=True)
 
 
 def check_weather(weather, points, start=START, end=END):

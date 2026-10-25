@@ -174,3 +174,14 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - **Delhi demand vs max temperature: U-shaped.** Lowest ~3,740 MW at 25–30 °C, ~6,530 MW above 40 °C, ~4,700–4,850 MW below 20 °C. Straight-line correlation only 0.45 because of the curve → Stage 3 needs cooling and heating degree-day features
 
 **Still to do in Stage 1:** combine points into one value per state and purpose → `data/processed/weather_state_daily.csv`.
+
+### Step 14 — Weather points combined into states (2026-10-25)
+**What:** `point_weights` and `combine_points` in `src/weather.py`. One weather row per date, state and purpose = the weighted average of its points that day. Demand points are weighted by city population (Census 2011); solar, wind and hydro points equally (no plant-level capacity data); single-point groups unchanged. Section 5 of `06_weather_data.ipynb`.
+
+**Checks:** 4 new tests (37 in total), including the hand example: cities of 3 M and 1 M people at 40 °C and 20 °C → 35 °C; weights sum to 1 in every group; every combined value lies between its points' min and max every day; Delhi's demand weather equals the New Delhi point.
+
+**Result:** `data/processed/weather_state_daily.csv`: 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows.
+- The largest city carries 41% (MP, Indore) to 88% (Telangana, Hyderabad) of its state's demand weight; Mumbai 69%, Chennai 77%
+- Population weighting vs a simple average changes daily max temperature by ~1 °C on average in Tamil Nadu (1.01) and Maharashtra (0.95), where coastal Chennai and Mumbai dominate; under 0.2 °C in UP and MP, where the cities have similar weather
+
+**Stage 1 complete.** Next, Stage 2: weather → daily availability factors for solar, wind and hydro, and a new dispatch run for the "actual" prices.
