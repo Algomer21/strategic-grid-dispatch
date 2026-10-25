@@ -98,3 +98,53 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - Yearly system cost changes by −0.1% to +0.7% (as designed); price standard deviation rises 324 → 356 Rs/MWh
 
 **Outputs:** `data/processed/seasonal_{state,flows,national}_daily.csv`. The constant-availability results (`dispatch_*`) are kept as the baseline.
+
+---
+
+## Part 2 — Day-ahead forecasting
+
+### Step 11 — Part 2 plan and objective (2026-10-25)
+**Objective:** on day D, forecast each state's peak demand and the renewable/hydro availability for day D+1, run them through the Part 1 dispatch model to get D+1 locational prices, and measure how much better this is than simple baselines, and when and why it fails. Mirrors a day-ahead market (IEX clears tomorrow's market today).
+
+**Sub-objectives:**
+- O1: state peak demand for D+1. Target: skill score ≥ 20% vs persistence (`1 − MAE_model / MAE_persistence`)
+- O2: solar, wind and hydro availability for D+1, from weather
+- O3: D+1 prices through dispatch (Route B), compared with a direct price model (Route A) and persistence
+- O4: uncertainty (prediction intervals) and error by situation
+- O5: a forecast package for Part 3: demand, availability, price (with ranges) and a tightness index `(available supply − demand) / demand`. Part 3's strategic bidders use it as their view of tomorrow; market power is expected on tight days
+
+**Decisions:**
+1. Availability becomes weather-based (daily, from Open-Meteo). A new dispatch run with weather-based availability becomes the "actual" price that forecasts are scored against, replacing `seasonal_*` as the truth
+2. D+1 weather: start with a perfect forecast (actual D+1 weather, upper bound) and persistence (day D weather, lower bound). Real archived weather forecasts later, if they cover the test period
+3. Solar and wind from **daily-average** weather, not the peak hour. Simpler and consistent with Part 1. Known limitation: the peak is in the evening for much of the year, when solar is near zero, so daily-average solar overstates supply at the peak and can understate peak prices. Can be tested later as a scenario
+4. Prices go in one format (`Date, Area, Price, Source`) so real IEX day-ahead prices can replace model prices later (IEX prices are by bid area, so a state → bid-area map will be needed)
+
+**Set-up:**
+- Train: 1 Jan 2020 – 31 Dec 2023. Test: 1 Jan 2024 – 31 Mar 2025. Split by time, never shuffled; later a walk-forward backtest (retrain monthly)
+- No leakage: a forecast for D+1 uses only information known on day D (rolling features shifted)
+- Metrics: MAE, MAPE, RMSE, skill score vs persistence
+- 32 states (DVC excluded, as in Part 1)
+
+**Model ladder (one change per step):** L0 persistence / last week → L1 month × weekday average → L2 linear regression (lags + calendar) → L3 + weather (ridge) → L4 LightGBM → L5 pooled vs per-state → L6 quantile ranges
+
+**Situations to test:** seasons, weekday/weekend, holidays/festivals, May 2024 heatwave, COVID 2020–21, monsoon onset/withdrawal, coal-tier step-edge days, state groups, horizons 1/7/30 days, weather-forecast quality, training length, what-ifs (demand +5%, drought, low wind)
+
+**External factors, first round:** heat index / cooling degree days, rainfall, irradiance, cloud cover, wind speed at 100 m, farming-season flags, holidays. Later only if the error analysis asks for them: state festivals, COVID stringency index, reservoir storage, coal stocks, outages
+
+### Step 12 — Forecast set-up and naive baselines (2026-10-25)
+**What:** `src/forecast.py` (time split, MAE / MAPE / RMSE / skill, persistence baseline) with 6 pytest checks (`tests/test_forecast.py`, hand-calculated answers); `05_forecast_setup.ipynb` scores the two naive baselines on the test period (1 Jan 2024 – 31 Mar 2025, 456 days).
+
+**Checks:** 32 states × 1,917 days, no gaps or NaN; train and test don't overlap and cover every day; baselines are shifted on the full series, so the forecast for 1 Jan 2024 is the real 31 Dec 2023 value (no missing first test day); metrics raise errors on NaN, mismatched lengths and MAPE with zero demand.
+
+**Result (national peak demand, test period):**
+
+| Baseline | MAE (MW) | MAPE | RMSE (MW) | Skill |
+|---|---|---|---|---|
+| Persistence (yesterday) | 4,929 | 2.26% | 6,662 | 0 (reference) |
+| Last week | 6,917 | 3.17% | 9,263 | −0.40 |
+
+- **Target for the models:** skill ≥ 0.20 → national MAE below ≈ 3,940 MW
+- Persistence error by weekday: Monday 10.4 GW, Sunday 8.4 GW, other days ~3 GW. It ignores the weekday effect
+- Persistence error grows with the lag (4.9 GW at 1 day → 7.9 GW at 5) and only partly recovers at 7 days (6.9 GW): a week of weather/seasonal drift costs more than the weekday effect. Next models should combine yesterday's level with a weekday correction
+- **States are harder:** persistence MAPE 2.4% (Chhattisgarh) to ~6–7% (small UTs, North-East); Punjab, Haryana and Tamil Nadu 5.4–5.8% (farm load, rainfall). Sum of state MAEs = 1.65 × the national MAE (state errors partly cancel)
+- Price baselines deferred to Stage 2, when the "actual" price is re-made with weather-based availability

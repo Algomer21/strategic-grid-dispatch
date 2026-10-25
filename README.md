@@ -39,7 +39,7 @@ python3 -m venv .venv
 
 Open the notebooks and pick the **Python (grid-dispatch)** kernel. Run them in number order.
 
-Run the checks for `src/dispatch.py`:
+Run the checks for `src/dispatch.py` and `src/forecast.py`:
 
 ```bash
 .venv/bin/python -m pytest
@@ -53,6 +53,7 @@ Run the checks for `src/dispatch.py`:
 | `02_merit_order` | Builds the dispatch models step by step: toy merit order → real stack → LP → copper-plate trading → distance-based losses |
 | `03_dispatch_all_days` | Runs the loss model with coal tiers for all 1,917 days and saves the results to `data/processed/` |
 | `04_seasonal_availability` | Re-runs it with monthly solar, wind and hydro availability and compares with notebook 03 |
+| `05_forecast_setup` | Part 2 set-up: time split, error metrics, naive baselines (persistence, last week) for national and state demand |
 
 Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
@@ -74,7 +75,7 @@ For each new feature: write the expected result → solve a tiny case by hand �
 
 ## Status
 
-🚧 Ongoing. Part 1 (dispatch) complete; Part 2 (forecasting) and Part 3 (strategic bidding) next.
+🚧 Ongoing. Part 1 (dispatch) complete; Part 2 (forecasting) in progress; Part 3 (strategic bidding) next.
 
 ## Progress Log
 
@@ -86,3 +87,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 6:** Rewrote dispatch as a linear program and validated it against merit order (0 disagreements over 1,917 days). Built a copper-plate trading model (one price everywhere) and a distance-based loss model that gives locational prices; realised losses of 3.4% match India's ~3–4%.
 - **Day 7:** Added coal cost tiers by state, moved the models into `src/dispatch.py` with pytest checks, and ran the loss model for all 1,917 days (8.8 s). Average price now ranges Rs 1,650–3,770 instead of sitting at Rs 2,000. Part 1 complete.
 - **Day 8:** Fixed 1,027 column-shifted DNH rows and 7 corrupted HP rows in cleaning: DD & DNH demand had been frozen and its demand counted as shortage (real national peak shortage 412 MW, not ~1 GW). Added seasonal availability: monsoon prices fall 120–170 Rs/MWh and winter prices rise 110–245, with summer roughly unchanged. Started `docs/model_log.md` and `data/README.md` as running references.
+- **Day 9:** Planned Part 2 (day-ahead forecasting of state demand and weather-based availability, priced through the dispatch model, linked to Part 3's bidders). Set up the time split, metrics and naive baselines: "same as yesterday" is already 2.26% off nationally (4.9 GW), and 2.4–6.7% for states. Models must beat it by 20%.
