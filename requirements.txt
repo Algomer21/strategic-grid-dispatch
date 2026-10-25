@@ -3,10 +3,12 @@ pandas
 numpy
 matplotlib
 
+# Optimisation: LP dispatch (scipy.optimize.linprog), later strategic bidding
+scipy
+
 # Notebooks
 jupyter
 ipykernel
 
 # Added later, when we reach those stages:
 # scikit-learn, statsmodels, xgboost  (forecasting)
-# scipy                               (strategic bidding)
