@@ -56,11 +56,13 @@ def day():
     return dem.loc["2024-07-21"], states, loss
 
 
-def test_loss_model_reproduces_notebook_result(day):
-    # Flat coal cost, 21 Jul 2024: the result validated in notebook 02
+def test_loss_model_reference_result(day):
+    # Flat coal cost, 21 Jul 2024. Notebook 02 validated Rs 296,732,641.83/h on the
+    # data before the DD & DNH fix (demand frozen at 1,237 MW); with the corrected
+    # 1,239 MW the same model gives the value below (see docs/model_log.md, step 9)
     demand, states, loss = day
     out = LossDispatchModel(load_generators(coal_tiers=False), loss, states).solve(demand)
-    assert out["total_cost"] == pytest.approx(296_732_641.83, rel=1e-9)
+    assert out["total_cost"] == pytest.approx(296_736_690.64, rel=1e-9)
 
 
 def test_zero_loss_gives_one_price(day):
