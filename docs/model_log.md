@@ -74,3 +74,27 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - Average national peak shortage: **412 MW**
 - Part 1 dispatch re-run: average price changes by Rs 0.77 on average. On two days (22 Jan and 24 Mar 2025) it jumped ~Rs 600 from only +100 MW of demand, because those days sit at the edge of a coal-tier step: **with a stepped supply curve, small demand changes near a step cause large price jumps.** Relevant for forecasting.
 - Reference test value updated: 21 Jul 2024, flat coal → Rs 296,736,690.64/h (was 296,732,641.83 with the frozen 1,237 MW)
+
+### Step 10 — Seasonal availability (2026-10-25)
+**Why:** in Part 1, solar, wind and hydro have the same availability every day, so the model has no seasonal supply pattern: the monthly price pattern was weak and only followed demand.
+
+**What:** monthly availability factors for solar, wind, large hydro and small hydro (`data/raw/seasonal_availability.csv`), applied day by day (`03`'s model, run in `04_seasonal_availability.ipynb`). `LossDispatchModel.solve()` takes an optional per-day availability; only the plant limits change, the constraint matrix is reused.
+
+**Assumptions:**
+- Factor shapes follow typical Indian patterns: wind peaks Jun–Aug (0.55 in Jul), hydro peaks Jul–Sep (0.72 in Aug) and is lowest Mar (0.27), solar dips Jul–Aug (0.18) and peaks Apr (0.31)
+- **Each fuel's 12-month average equals its constant factor** (0.25, 0.30, 0.45, 0.40), so the comparison isolates *timing*: same yearly renewable supply
+- **Coal and all other fuels kept constant all year, on purpose**, to isolate the renewable effect. In reality coal availability also dips in the monsoon (wet coal, planned maintenance); not modelled
+- Monthly factors ignore the time of day of the peak (afternoon in summer, evening in winter/monsoon)
+- Not measured data; can be refined against CEA monthly generation reports
+
+**Checks:** factor averages equal the constants (test); a constant override gives the same answer as no override (test); energy balance every day; demand identical to the baseline; July large-hydro availability = 0.65 of nameplate as intended; no negative prices or unserved days; losses 3.81% of traded power.
+
+**Result (monthly averages over full years 2020–2024):**
+- **Monsoon (Jun–Sep): prices −120 to −170 Rs/MWh** — wind and hydro push 9–13 GW of coal off
+- **Winter (Dec–Feb): prices +110 to +245 Rs/MWh** — 9–14 GW more coal
+- Summer (Mar–May): −95 to +72 — low hydro offset by strong solar and May wind. **The hypothesis that summer prices would rise was wrong**; winter is the expensive season in this model
+- All states move together (winter ≈ +200, monsoon ≈ −150) because prices are linked by trade
+- HP exports 6.4 GW in the monsoon vs 2.2 GW in winter (constant model: ~4 GW all year); Uttarakhand imports outside the monsoon
+- Yearly system cost changes by −0.1% to +0.7% (as designed); price standard deviation rises 324 → 356 Rs/MWh
+
+**Outputs:** `data/processed/seasonal_{state,flows,national}_daily.csv`. The constant-availability results (`dispatch_*`) are kept as the baseline.
