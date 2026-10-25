@@ -6,6 +6,9 @@ matplotlib
 # Optimisation: LP dispatch (scipy.optimize.linprog), later strategic bidding
 scipy
 
+# Downloads: weather data from the Open-Meteo API (src/weather.py)
+requests
+
 # Notebooks
 jupyter
 ipykernel

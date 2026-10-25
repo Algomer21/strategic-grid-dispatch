@@ -70,6 +70,56 @@ One point per state: its capital (32 rows). Used for distances between states.
 
 Choices: Punjab, Haryana and Chandigarh all use Chandigarh (0 km apart); J&K & Ladakh uses Srinagar (summer capital); DD & DNH uses Daman.
 
+### weather_points.csv
+Where weather is measured for Part 2: 151 points (139 unique locations), each tied to a state and a purpose. Hand-curated, reviewed 2026-10-25 (model log Step 13).
+
+| Column | Meaning |
+|---|---|
+| Point_ID | Unique id, `purpose_place_state` |
+| State | State name as in the demand data |
+| Purpose | `demand`, `solar`, `wind` or `hydro` |
+| Place | City, solar park, wind zone or dam |
+| Lat, Lon | Decimal degrees |
+| Reason | Why this point was chosen |
+
+Rules:
+- **Demand (56):** the 12 states with mean peak demand ≥ 8,000 MW use their 3 largest cities (Census 2011) that are at least 100 km apart, combined by population (`city_population.csv`). Nearby big cities are skipped (Kanpur near Lucknow, Gurgaon near Faridabad, Howrah near Kolkata), so their population is not in the weights. Other states use their capital
+- **Solar (46), wind (17), hydro (32):** every state with any capacity of that fuel in `india_generator_stack.csv` gets points; states with ≥ 5,000 MW of the fuel get 2–3 points (simple average, no plant-level capacity data), others 1. Small rooftop-solar states and Goa's 0.05 MW hydro use the capital
+- Hydro points are at the dam, not upstream in the catchment; Himalayan hydro is snowmelt-driven in summer (temperature at those points can be used as a proxy)
+- 7 rows are marked "location approximate" (small capacity: Odisha, Assam and West Bengal solar, Telangana wind, Mizoram, Bihar and Tripura hydro)
+
+### city_population.csv
+Population weights for the 36 demand cities in the 12 multi-city states (3 per state).
+
+| Column | Meaning |
+|---|---|
+| Point_ID | Matches `weather_points.csv` |
+| State, City | |
+| Population_2011 | Census 2011 city population |
+| Source | Wikipedia "List of cities in India by population" (accessed 2026-10-25) |
+
+Some figures are for expanded city limits (e.g. Chennai 6.7 M instead of the 2011 city's 4.6 M); one source for all cities keeps the weights consistent.
+
+### weather_daily.csv
+Daily weather at every point in `weather_points.csv`, 1 Dec 2019 – 31 Mar 2025: 151 points × 1,948 days = 294,148 rows (~20 MB). Downloaded by `src/weather.py` (`fetch_all`), checked by `check_weather`, saved in `06_weather_data.ipynb`. Never edited by hand.
+
+Source: [Open-Meteo](https://open-meteo.com/) historical weather archive (reanalysis, ERA5-based, ~10–25 km grid), licence CC BY 4.0. Days in Indian time (`Asia/Kolkata`).
+
+| Column | Meaning |
+|---|---|
+| Point_ID | Matches `weather_points.csv` |
+| Date | Calendar day (IST) |
+| temperature_2m_max / _mean / _min | Air temperature at 2 m, °C |
+| precipitation_sum | Rain (and snow as water), mm/day |
+| shortwave_radiation_sum | Solar radiation, MJ/m² per day |
+| cloud_cover_mean | % |
+| wind_speed_100m_mean | Wind speed at 100 m (about turbine height), km/h |
+
+Notes:
+- Actual weather, so using it for day D+1 is the "perfect weather forecast" case
+- Points that share a place (e.g. a capital used for demand and solar) have identical rows
+- Rebuilding: re-run notebook 06. Each location is cached in `data/cache/weather/` (not in git); the free API allows ~100 five-year location downloads per hour, so a rebuild from an empty cache needs about 1.5 hours
+
 ## processed/
 
 | File | Made by | One row per | Contents |

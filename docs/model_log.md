@@ -148,3 +148,29 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - Persistence error grows with the lag (4.9 GW at 1 day → 7.9 GW at 5) and only partly recovers at 7 days (6.9 GW): a week of weather/seasonal drift costs more than the weekday effect. Next models should combine yesterday's level with a weekday correction
 - **States are harder:** persistence MAPE 2.4% (Chhattisgarh) to ~6–7% (small UTs, North-East); Punjab, Haryana and Tamil Nadu 5.4–5.8% (farm load, rainfall). Sum of state MAEs = 1.65 × the national MAE (state errors partly cancel)
 - Price baselines deferred to Stage 2, when the "actual" price is re-made with weather-based availability
+
+### Step 13 — Weather points and weather data (2026-10-25)
+**Why:** demand depends on heat, and solar, wind and hydro depend on sun, wind and rain. Part 2 forecasts both, so it needs daily weather where the load and the plants are, not just at state capitals.
+
+**Decisions (Stage 1, asked one at a time):**
+1. Points chosen **by purpose**: demand, solar, wind, hydro (`data/raw/weather_points.csv`, 151 points, 139 unique locations)
+2. Demand: the 12 states with mean peak ≥ 8,000 MW use their 3 largest cities at least 100 km apart, **population-weighted** (Census 2011, `city_population.csv`); other states use the capital
+3. Variables: max/mean/min temperature, rainfall, solar radiation, cloud cover, wind at 100 m. **No humidity / feels-like** for now (add if humid states forecast badly)
+4. Supply points for **every state with any capacity** of that fuel (32 solar, 9 wind, 28 hydro)
+5. 2–3 points (simple average) where a state has ≥ 5,000 MW of the fuel, otherwise 1
+6. Period 1 Dec 2019 – 31 Mar 2025, Indian time, Open-Meteo historical archive
+
+**Code:** `src/weather.py`: `parse_daily` (checks every answer: all days, no empty values), `fetch_point` (retries rate limits, server errors and garbled answers), `fetch_all` (each unique location once, cached in `data/cache/weather/`), `check_weather` (all points × all days, physical ranges). 7 tests with fake answers, no internet needed (33 tests in total).
+
+**Problems met:** the first full run stopped at location 2 on a garbled (non-JSON) answer → added retries. Then the free API's **hourly limit** stopped it after 107 of 139 locations (a 5-year download counts as many requests) → waited and resumed from the cache.
+
+**Checks:** 294,148 rows = 151 × 1,948, no NaN, all values in physical ranges; Jaipur 46.0 °C on 29 May 2024; the five hottest demand-point days are all 26–29 May 2024 (Jodhpur 48.3 °C).
+
+**Results (`06_weather_data.ipynb`):**
+- **Wind:** weather shape (speed³) matches the assumed Step 10 shape well (correlation 0.94, both peak in July; weather slightly more peaked)
+- **Solar:** correlation 0.61. Weather radiation dips much less in the monsoon (0.92–0.96 of average vs assumed 0.72) and more in winter (0.79–0.84 vs ~1.0). The assumed shape overstates winter solar, so Part 1's winter prices may be too low
+- **Hydro:** rain peaks in July at 2.7× average; the assumed hydro shape peaks in August at 1.6×. Reservoirs store and smooth rain, so Stage 2 needs a rainfall running total, not daily rain
+- **Kerala monsoon:** rain builds through late May–June; pre-monsoon showers from mid-May mean onset isn't detectable with a simple rule (not needed)
+- **Delhi demand vs max temperature: U-shaped.** Lowest ~3,740 MW at 25–30 °C, ~6,530 MW above 40 °C, ~4,700–4,850 MW below 20 °C. Straight-line correlation only 0.45 because of the curve → Stage 3 needs cooling and heating degree-day features
+
+**Still to do in Stage 1:** combine points into one value per state and purpose → `data/processed/weather_state_daily.csv`.

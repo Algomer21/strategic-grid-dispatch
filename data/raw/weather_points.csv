@@ -1,0 +1,152 @@
+Point_ID,State,Purpose,Place,Lat,Lon,Reason
+demand_mumbai_wr,WR Maharashtra,demand,Mumbai,19.076,72.878,Largest city
+demand_pune_wr,WR Maharashtra,demand,Pune,18.52,73.857,Large city >= 100 km from the others
+demand_nagpur_wr,WR Maharashtra,demand,Nagpur,21.146,79.088,Large city >= 100 km from the others
+demand_lucknow_nr,NR UP,demand,Lucknow,26.847,80.946,Largest city
+demand_ghaziabad_nr,NR UP,demand,Ghaziabad,28.669,77.454,Large city >= 100 km from the others
+demand_agra_nr,NR UP,demand,Agra,27.177,78.008,Large city >= 100 km from the others
+demand_ahmedabad_guj,Gujarat,demand,Ahmedabad,23.023,72.571,Largest city
+demand_surat_guj,Gujarat,demand,Surat,21.17,72.831,Large city >= 100 km from the others
+demand_rajkot_guj,Gujarat,demand,Rajkot,22.303,70.802,Large city >= 100 km from the others
+demand_chennai_tam,Tamil Nadu,demand,Chennai,13.083,80.271,Largest city
+demand_coimbatore_tam,Tamil Nadu,demand,Coimbatore,11.017,76.956,Large city >= 100 km from the others
+demand_madurai_tam,Tamil Nadu,demand,Madurai,9.925,78.12,Large city >= 100 km from the others
+demand_jaipur_raj,Rajasthan,demand,Jaipur,26.912,75.787,Largest city
+demand_jodhpur_raj,Rajasthan,demand,Jodhpur,26.238,73.024,Large city >= 100 km from the others
+demand_kota_raj,Rajasthan,demand,Kota,25.213,75.865,Large city >= 100 km from the others
+demand_indore_mp,MP,demand,Indore,22.72,75.858,Largest city
+demand_bhopal_mp,MP,demand,Bhopal,23.26,77.413,Large city >= 100 km from the others
+demand_jabalpur_mp,MP,demand,Jabalpur,23.181,79.986,Large city >= 100 km from the others
+demand_bengaluru_sr,SR Karnataka,demand,Bengaluru,12.972,77.595,Largest city
+demand_hubballi_dharwad_sr,SR Karnataka,demand,Hubballi-Dharwad,15.364,75.124,Large city >= 100 km from the others
+demand_mysuru_sr,SR Karnataka,demand,Mysuru,12.296,76.639,Large city >= 100 km from the others
+demand_hyderabad_tel,Telangana,demand,Hyderabad,17.385,78.487,Largest city
+demand_warangal_tel,Telangana,demand,Warangal,17.968,79.594,Large city >= 100 km from the others
+demand_nizamabad_tel,Telangana,demand,Nizamabad,18.672,78.094,Large city >= 100 km from the others
+demand_visakhapatnam_and,Andhra Pradesh,demand,Visakhapatnam,17.687,83.218,Largest city
+demand_vijayawada_and,Andhra Pradesh,demand,Vijayawada,16.506,80.648,Large city >= 100 km from the others
+demand_nellore_and,Andhra Pradesh,demand,Nellore,14.443,79.987,Large city >= 100 km from the others
+demand_ludhiana_pun,Punjab,demand,Ludhiana,30.901,75.857,Largest city
+demand_amritsar_pun,Punjab,demand,Amritsar,31.634,74.872,Large city >= 100 km from the others
+demand_bathinda_pun,Punjab,demand,Bathinda,30.211,74.945,Large city >= 100 km from the others
+demand_faridabad_har,Haryana,demand,Faridabad,28.408,77.318,Largest city
+demand_hisar_har,Haryana,demand,Hisar,29.149,75.722,Large city >= 100 km from the others
+demand_panipat_har,Haryana,demand,Panipat,29.391,76.964,Large city >= 100 km from the others
+demand_kolkata_wes,West Bengal,demand,Kolkata,22.573,88.364,Largest city
+demand_durgapur_wes,West Bengal,demand,Durgapur,23.52,87.312,Large city >= 100 km from the others
+demand_siliguri_wes,West Bengal,demand,Siliguri,26.727,88.395,Large city >= 100 km from the others
+demand_itanagar_aru,Arunachal Pradesh,demand,Itanagar,27.0844,93.6053,"Capital (state below 8,000 MW mean peak demand)"
+demand_dispur_ass,Assam,demand,Dispur,26.1433,91.7898,"Capital (state below 8,000 MW mean peak demand)"
+demand_patna_bih,Bihar,demand,Patna,25.5941,85.1376,"Capital (state below 8,000 MW mean peak demand)"
+demand_chandigarh_cha,Chandigarh,demand,Chandigarh,30.7333,76.7794,"Capital (state below 8,000 MW mean peak demand)"
+demand_raipur_chh,Chhattisgarh,demand,Raipur,21.2514,81.6296,"Capital (state below 8,000 MW mean peak demand)"
+demand_daman_dd,DD & DNH,demand,Daman,20.3974,72.8328,"Capital (state below 8,000 MW mean peak demand)"
+demand_new_delhi_del,Delhi,demand,New Delhi,28.6139,77.209,"Capital (state below 8,000 MW mean peak demand)"
+demand_bhubaneswar_er,ER Odisha,demand,Bhubaneswar,20.2961,85.8245,"Capital (state below 8,000 MW mean peak demand)"
+demand_panaji_goa,Goa,demand,Panaji,15.4909,73.8278,"Capital (state below 8,000 MW mean peak demand)"
+demand_shimla_hp,HP,demand,Shimla,31.1048,77.1734,"Capital (state below 8,000 MW mean peak demand)"
+demand_srinagar_j&k,J&K(UT) & Ladakh(UT),demand,Srinagar,34.0837,74.7973,"Capital (state below 8,000 MW mean peak demand)"
+demand_thiruvananthapuram_ker,Kerala,demand,Thiruvananthapuram,8.5241,76.9366,"Capital (state below 8,000 MW mean peak demand)"
+demand_imphal_man,Manipur,demand,Imphal,24.817,93.9368,"Capital (state below 8,000 MW mean peak demand)"
+demand_aizawl_miz,Mizoram,demand,Aizawl,23.7271,92.7176,"Capital (state below 8,000 MW mean peak demand)"
+demand_shillong_ner,NER Meghalaya,demand,Shillong,25.5788,91.8933,"Capital (state below 8,000 MW mean peak demand)"
+demand_kohima_nag,Nagaland,demand,Kohima,25.6751,94.1086,"Capital (state below 8,000 MW mean peak demand)"
+demand_puducherry_pud,Puducherry,demand,Puducherry,11.9416,79.8083,"Capital (state below 8,000 MW mean peak demand)"
+demand_gangtok_sik,Sikkim,demand,Gangtok,27.3389,88.6065,"Capital (state below 8,000 MW mean peak demand)"
+demand_agartala_tri,Tripura,demand,Agartala,23.8315,91.2868,"Capital (state below 8,000 MW mean peak demand)"
+demand_dehradun_utt,Uttarakhand,demand,Dehradun,30.3165,78.0322,"Capital (state below 8,000 MW mean peak demand)"
+solar_bhadla_raj,Rajasthan,solar,Bhadla,27.53,71.92,"Bhadla Solar Park (Jodhpur), ~2.2 GW, largest in India"
+solar_pugal_raj,Rajasthan,solar,Pugal,28.5,72.8,"Bikaner solar cluster (Pugal, Nokh)"
+solar_fatehgarh_raj,Rajasthan,solar,Fatehgarh,26.46,71.1,Jaisalmer solar cluster (Fatehgarh)
+solar_khavda_guj,Gujarat,solar,Khavda,23.95,69.6,"Khavda RE Park (Kutch), largest solar build-out in Gujarat"
+solar_charanka_guj,Gujarat,solar,Charanka,23.9,71.2,Charanka Solar Park (Patan)
+solar_dholera_guj,Gujarat,solar,Dholera,22.18,72.2,Dholera Solar Park (Ahmedabad district)
+solar_sakri_wr,WR Maharashtra,solar,Sakri,21.03,74.32,"Sakri solar plant (Dhule), north Maharashtra"
+solar_solapur_wr,WR Maharashtra,solar,Solapur,17.67,75.91,"Solapur solar cluster (NTPC Solapur, distributed agri solar)"
+solar_ahmednagar_wr,WR Maharashtra,solar,Ahmednagar,19.09,74.74,Ahmednagar distributed agri-feeder solar (MSKVY)
+solar_kamuthi_tam,Tamil Nadu,solar,Kamuthi,9.35,78.38,"Kamuthi Solar Power Project (Ramanathapuram), 648 MW"
+solar_thoothukudi_tam,Tamil Nadu,solar,Thoothukudi,8.76,78.13,Thoothukudi solar cluster
+solar_pavagada_sr,SR Karnataka,solar,Pavagada,14.1,77.27,"Pavagada Solar Park (Tumakuru), ~2 GW"
+solar_koppal_sr,SR Karnataka,solar,Koppal,15.35,76.15,Koppal solar cluster (north Karnataka)
+solar_vijayapura_sr,SR Karnataka,solar,Vijayapura,16.83,75.71,Vijayapura solar cluster (north Karnataka)
+solar_kurnool_and,Andhra Pradesh,solar,Kurnool,15.55,78.3,"Kurnool Ultra Mega Solar Park (Panyam), 1 GW"
+solar_np_kunta_and,Andhra Pradesh,solar,NP Kunta,14.03,78.43,NP Kunta Ultra Mega Solar Park (Ananthapuramu)
+solar_rewa_mp,MP,solar,Rewa,24.48,81.43,"Rewa Ultra Mega Solar (Gurh), 750 MW"
+solar_neemuch_mp,MP,solar,Neemuch,24.47,74.87,Neemuch solar park (west MP)
+solar_agar_mp,MP,solar,Agar,23.71,76.01,Agar-Shajapur solar parks (Malwa)
+solar_jalaun_nr,NR UP,solar,Jalaun,26.14,79.33,Bundelkhand solar cluster (Jalaun)
+solar_mirzapur_nr,NR UP,solar,Mirzapur,25.15,82.57,Mirzapur solar cluster (east UP)
+solar_mahabubnagar_tel,Telangana,solar,Mahabubnagar,16.74,78.0,Mahabubnagar solar cluster (south Telangana)
+solar_sangareddy_tel,Telangana,solar,Sangareddy,17.62,78.09,Sangareddy / Medak solar cluster
+solar_hisar_har,Haryana,solar,Hisar,29.15,75.72,"West Haryana, where utility and agri solar is concentrated"
+solar_ambalathara_ker,Kerala,solar,Ambalathara,12.37,75.12,Kasaragod Solar Park (Ambalathara)
+solar_rajnandgaon_chh,Chhattisgarh,solar,Rajnandgaon,21.1,81.03,"Rajnandgaon solar plant (SECI, with battery)"
+solar_bathinda_pun,Punjab,solar,Bathinda,30.21,74.95,Malwa region solar (Bathinda)
+solar_bolangir_er,ER Odisha,solar,Bolangir,20.7,83.48,West Odisha solar (location approximate)
+solar_rudrapur_utt,Uttarakhand,solar,Rudrapur,28.98,79.4,"Udham Singh Nagar plains, where most UK solar is"
+solar_amguri_ass,Assam,solar,Amguri,26.82,94.52,Amguri solar plant (Sivasagar) (location approximate)
+solar_kajra_bih,Bihar,solar,Kajra,25.17,86.1,Kajra solar project (Lakhisarai)
+solar_una_hp,HP,solar,Una,31.47,76.27,"Una foothills, where HP's ground-mounted solar is"
+solar_purulia_wes,West Bengal,solar,Purulia,23.33,86.36,"West Bengal's driest, sunniest district (location approximate)"
+solar_jammu_j&k,J&K(UT) & Ladakh(UT),solar,Jammu,32.73,74.86,Jammu plains (Ladakh solar is small)
+solar_silvassa_dd,DD & DNH,solar,Silvassa,20.27,73.02,Industrial rooftop solar around Silvassa
+solar_new_delhi_del,Delhi,solar,New Delhi,28.6139,77.209,"Small, mostly rooftop solar: capital as the point"
+solar_panaji_goa,Goa,solar,Panaji,15.4909,73.8278,"Small, mostly rooftop solar: capital as the point"
+solar_puducherry_pud,Puducherry,solar,Puducherry,11.9416,79.8083,"Small, mostly rooftop solar: capital as the point"
+solar_chandigarh_cha,Chandigarh,solar,Chandigarh,30.7333,76.7794,"Small, mostly rooftop solar: capital as the point"
+solar_agartala_tri,Tripura,solar,Agartala,23.8315,91.2868,"Small, mostly rooftop solar: capital as the point"
+solar_aizawl_miz,Mizoram,solar,Aizawl,23.7271,92.7176,"Small, mostly rooftop solar: capital as the point"
+solar_imphal_man,Manipur,solar,Imphal,24.817,93.9368,"Small, mostly rooftop solar: capital as the point"
+solar_itanagar_aru,Arunachal Pradesh,solar,Itanagar,27.0844,93.6053,"Small, mostly rooftop solar: capital as the point"
+solar_gangtok_sik,Sikkim,solar,Gangtok,27.3389,88.6065,"Small, mostly rooftop solar: capital as the point"
+solar_shillong_ner,NER Meghalaya,solar,Shillong,25.5788,91.8933,"Small, mostly rooftop solar: capital as the point"
+solar_kohima_nag,Nagaland,solar,Kohima,25.6751,94.1086,"Small, mostly rooftop solar: capital as the point"
+wind_naliya_guj,Gujarat,wind,Naliya,23.26,68.84,"Kutch coast wind zone (Naliya, Abdasa)"
+wind_lalpur_guj,Gujarat,wind,Lalpur,22.19,69.96,Jamnagar / Dwarka wind zone
+wind_amreli_guj,Gujarat,wind,Amreli,21.6,71.22,Saurashtra south coast wind zone
+wind_muppandal_tam,Tamil Nadu,wind,Muppandal,8.26,77.54,"Muppandal (Aralvaimozhi pass), oldest and densest wind zone"
+wind_kayathar_tam,Tamil Nadu,wind,Kayathar,8.95,77.77,Tirunelveli / Thoothukudi wind zone
+wind_udumalpet_tam,Tamil Nadu,wind,Udumalpet,10.58,77.25,Palghat gap wind zone (Coimbatore / Tiruppur)
+wind_chitradurga_sr,SR Karnataka,wind,Chitradurga,14.23,76.4,Chitradurga wind zone
+wind_gadag_sr,SR Karnataka,wind,Gadag,15.43,75.63,Gadag (Kappatagudda) wind zone
+wind_chalkewadi_wr,WR Maharashtra,wind,Chalkewadi,17.6,73.83,Satara plateau wind zone (Chalkewadi)
+wind_supa_wr,WR Maharashtra,wind,Supa,18.95,74.53,Ahmednagar wind zone (Supa)
+wind_brahmanvel_wr,WR Maharashtra,wind,Brahmanvel,21.13,74.12,Dhule wind zone (Brahmanvel)
+wind_jaisalmer_raj,Rajasthan,wind,Jaisalmer,26.95,70.85,Jaisalmer wind zone (Bada Bagh)
+wind_pratapgarh_raj,Rajasthan,wind,Pratapgarh,24.03,74.78,South Rajasthan wind (Pratapgarh / Chittorgarh)
+wind_ramagiri_and,Andhra Pradesh,wind,Ramagiri,14.3,77.52,Anantapur wind zone (Ramagiri)
+wind_ratlam_mp,MP,wind,Ratlam,23.33,75.04,Ratlam / Nagda hills wind zone
+wind_narayanpet_tel,Telangana,wind,Narayanpet,16.74,77.5,"South-west Telangana (location approximate, 128 MW only)"
+wind_ramakkalmedu_ker,Kerala,wind,Ramakkalmedu,9.81,77.24,Ramakkalmedu wind farm (Idukki)
+hydro_bhakra_hp,HP,hydro,Bhakra,31.41,76.43,"Bhakra dam (Sutlej, Bilaspur)"
+hydro_jhakri_hp,HP,hydro,Jhakri,31.48,77.72,"Nathpa Jhakri / Karcham Wangtoo (upper Sutlej, Kinnaur)"
+hydro_chamba_hp,HP,hydro,Chamba,32.6,76.1,Chamera stations (Ravi basin)
+hydro_tehri_utt,Uttarakhand,hydro,Tehri,30.38,78.48,Tehri dam (Bhagirathi)
+hydro_joshimath_utt,Uttarakhand,hydro,Joshimath,30.57,79.57,Vishnuprayag (Alaknanda)
+hydro_dharchula_utt,Uttarakhand,hydro,Dharchula,29.85,80.55,Dhauliganga (Kali basin)
+hydro_sharavathi_sr,SR Karnataka,hydro,Sharavathi,14.18,74.85,Linganamakki / Sharavathi (Western Ghats)
+hydro_nagarjuna_sagar_tel,Telangana,hydro,Nagarjuna Sagar,16.57,79.31,Nagarjuna Sagar (Krishna)
+hydro_kundah_tam,Tamil Nadu,hydro,Kundah,11.27,76.65,Kundah stations (Nilgiris)
+hydro_srisailam_and,Andhra Pradesh,hydro,Srisailam,16.09,78.9,Srisailam (Krishna)
+hydro_koyna_wr,WR Maharashtra,hydro,Koyna,17.4,73.75,Koyna (Western Ghats)
+hydro_indira_sagar_mp,MP,hydro,Indira Sagar,22.28,76.47,Indira Sagar (Narmada)
+hydro_hirakud_er,ER Odisha,hydro,Hirakud,21.53,83.87,Hirakud (Mahanadi)
+hydro_idukki_ker,Kerala,hydro,Idukki,9.84,76.97,Idukki (Periyar)
+hydro_dikchu_sik,Sikkim,hydro,Dikchu,27.4,88.52,Teesta-V and Teesta-III (Teesta)
+hydro_kishtwar_j&k,J&K(UT) & Ladakh(UT),hydro,Kishtwar,33.31,75.77,Dul Hasti / Chenab valley stations
+hydro_yazali_aru,Arunachal Pradesh,hydro,Yazali,27.46,93.74,Ranganadi (Yazali)
+hydro_kevadia_guj,Gujarat,hydro,Kevadia,21.83,73.75,Sardar Sarovar (Narmada)
+hydro_teesta_low_dam_wes,West Bengal,hydro,Teesta Low Dam,26.98,88.43,Teesta low dam stations (Kalimpong)
+hydro_ranjit_sagar_pun,Punjab,hydro,Ranjit Sagar,32.44,75.73,Ranjit Sagar (Ravi)
+hydro_rihand_nr,NR UP,hydro,Rihand,24.2,83.03,Rihand (Sonbhadra)
+hydro_rana_pratap_sagar_raj,Rajasthan,hydro,Rana Pratap Sagar,24.92,75.58,Rana Pratap Sagar (Chambal)
+hydro_umrangso_ass,Assam,hydro,Umrangso,25.52,92.73,Kopili stations (Umrangso)
+hydro_umiam_ner,NER Meghalaya,hydro,Umiam,25.65,91.89,Umiam stations (near Shillong)
+hydro_hasdeo_bango_chh,Chhattisgarh,hydro,Hasdeo Bango,22.62,82.6,Hasdeo Bango (Korba)
+hydro_loktak_man,Manipur,hydro,Loktak,24.5,93.8,Loktak project
+hydro_tuirial_miz,Mizoram,hydro,Tuirial,24.37,92.9,Tuirial project (location approximate)
+hydro_doyang_nag,Nagaland,hydro,Doyang,26.21,94.25,Doyang project
+hydro_dehri_bih,Bihar,hydro,Dehri,24.9,84.18,Sone canal small hydro (location approximate)
+hydro_yamunanagar_har,Haryana,hydro,Yamunanagar,30.13,77.29,Western Yamuna Canal hydel
+hydro_gumti_tri,Tripura,hydro,Gumti,23.43,91.73,Gumti project (location approximate)
+hydro_panaji_goa,Goa,hydro,Panaji,15.4909,73.8278,0.05 MW small hydro only: capital as the point

@@ -39,7 +39,7 @@ python3 -m venv .venv
 
 Open the notebooks and pick the **Python (grid-dispatch)** kernel. Run them in number order.
 
-Run the checks for `src/dispatch.py` and `src/forecast.py`:
+Run the checks for `src/dispatch.py`, `src/forecast.py` and `src/weather.py`:
 
 ```bash
 .venv/bin/python -m pytest
@@ -54,6 +54,7 @@ Run the checks for `src/dispatch.py` and `src/forecast.py`:
 | `03_dispatch_all_days` | Runs the loss model with coal tiers for all 1,917 days and saves the results to `data/processed/` |
 | `04_seasonal_availability` | Re-runs it with monthly solar, wind and hydro availability and compares with notebook 03 |
 | `05_forecast_setup` | Part 2 set-up: time split, error metrics, naive baselines (persistence, last week) for national and state demand |
+| `06_weather_data` | Downloads daily weather for 151 points (demand cities, solar parks, wind zones, dams) from Open-Meteo and checks it |
 
 Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
@@ -88,3 +89,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 7:** Added coal cost tiers by state, moved the models into `src/dispatch.py` with pytest checks, and ran the loss model for all 1,917 days (8.8 s). Average price now ranges Rs 1,650–3,770 instead of sitting at Rs 2,000. Part 1 complete.
 - **Day 8:** Fixed 1,027 column-shifted DNH rows and 7 corrupted HP rows in cleaning: DD & DNH demand had been frozen and its demand counted as shortage (real national peak shortage 412 MW, not ~1 GW). Added seasonal availability: monsoon prices fall 120–170 Rs/MWh and winter prices rise 110–245, with summer roughly unchanged. Started `docs/model_log.md` and `data/README.md` as running references.
 - **Day 9:** Planned Part 2 (day-ahead forecasting of state demand and weather-based availability, priced through the dispatch model, linked to Part 3's bidders). Set up the time split, metrics and naive baselines: "same as yesterday" is already 2.26% off nationally (4.9 GW), and 2.4–6.7% for states. Models must beat it by 20%.
+- **Day 10:** Chose 151 weather points by purpose (population-weighted cities for demand; solar parks, wind zones and dams for supply) and downloaded 5 years of daily weather from Open-Meteo. Wind's assumed seasonal shape matches the weather well; solar's overstates winter and understates the monsoon; rain peaks a month before hydro output, so reservoirs need a running total. Delhi's demand is U-shaped in temperature.
