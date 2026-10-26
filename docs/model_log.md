@@ -2,6 +2,8 @@
 
 A dated record of every modelling and data step: what was done, why, the assumptions, how it was checked, and what came out. Newest entries at the bottom. Data files are described in [`data/README.md`](../data/README.md).
 
+Part 3 (strategic bidding) follows the plan in [`part3_plan.md`](part3_plan.md), agreed 2026-10-25 and updated 2026-10-26 to use Part 2's final outputs; its steps will be logged here when work starts.
+
 ---
 
 ## Part 1: dispatch model
