@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -108,3 +109,15 @@ def test_combine_points_hand_answer():
 def test_real_weights_sum_to_one():
     w = point_weights(load_points(), load_population())
     assert w.groupby(["State", "Purpose"])["Weight"].sum().round(12).eq(1).all()
+
+
+def test_anchor_forecast_cancels_bias_and_keeps_rain():
+    from weather import anchor_forecast
+    dates = pd.date_range("2024-03-01", periods=5)
+    actual = pd.DataFrame({"Date": dates, "State": "X", "Purpose": "demand",
+                           "temperature_2m_mean": [20.0, 22, 25, 23, 21], "precipitation_sum": 0.0})
+    fcst = actual.assign(temperature_2m_mean=actual.temperature_2m_mean + 2, precipitation_sum=5.0)  # +2 °C bias
+    out = anchor_forecast(actual, fcst, ["temperature_2m_mean"]).set_index("Date")
+    assert np.allclose(out.temperature_2m_mean, actual.set_index("Date").temperature_2m_mean.loc[out.index])
+    assert (out.precipitation_sum == 5.0).all()
+    assert out.index.min() == dates[1]                          # first day has no "today's forecast"

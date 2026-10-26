@@ -148,6 +148,14 @@ Start of paddy transplanting in Punjab and Haryana, 2020–2024 (10 rows): farm 
 
 Punjab: 10 Jun 2020, 10 Jun 2021, 14 Jun 2022, 16 Jun 2023, 11 Jun 2024 (main start). Haryana: 15 June every year (fixed by the Haryana Preservation of Subsoil Water Act 2009). The paddy-season flag runs from `Main_start` to 30 September.
 
+### forecast_weather_daily.csv
+Day-ahead weather forecasts at every point in `weather_points.csv`, 1 Jan 2024 – 31 Mar 2025 (151 points × 456 days = 68,856 rows). Each value is what the forecast issued the **day before** said: Open-Meteo previous-runs archive (`*_previous_day1` hourly variables), turned into the same daily variables as `weather_daily.csv` by `hourly_to_daily` in `src/weather.py` (`09_availability_forecast.ipynb`). Licence CC BY 4.0.
+
+- Same columns and units as `weather_daily.csv`
+- **Complete from March 2024**; Jan–Feb 2024 mostly empty (a day with any missing hour is left empty)
+- The forecasts are biased by season (e.g. solar radiation too high in hazy dry months, too low in the monsoon), so Part 2 uses them *anchored*: today's actual + forecast change (model log Step 17)
+- Hourly data cached in `data/cache/forecast_hourly/` (not in git; ~1–2 h to re-download)
+
 ## processed/
 
 | File | Made by | One row per | Contents |
@@ -165,6 +173,9 @@ Punjab: 10 Jun 2020, 10 Jun 2021, 14 Jun 2022, 16 Jun 2023, 11 Jun 2024 (main st
 | dispatch_weather_flows_daily.csv | 07_weather_availability | Day × trade | As dispatch_flows_daily, weather-availability run |
 | dispatch_weather_national_daily.csv | 07_weather_availability | Day | As dispatch_national_daily, weather-availability run |
 | demand_forecast_test.csv | 08_demand_forecast | Day × area × model × weather case | Day-ahead demand forecasts for the test period (details below) |
+| forecast_weather_state_daily.csv | 09_availability_forecast | Day × state × purpose | Day-ahead forecast weather combined into states (same weights and columns as weather_state_daily) |
+| availability_forecast_test.csv | 09_availability_forecast | Day × state × weather fuel × model | Day-ahead availability forecasts, 2024 – Mar 2025 (details below) |
+| demand_forecast_dayahead.csv | 09_availability_forecast | Day × state × model × weather case | Stage 3 demand models fed real day-ahead forecasts, Feb 2024 – Mar 2025 (details below) |
 
 ### weather_state_daily.csv
 Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
@@ -204,4 +215,19 @@ Every Stage 3 model's day-ahead forecast for every test day (1 Jan 2024 – 31 M
 | Actual | Actual peak demand, MW |
 
 National = sum of the 32 state rows for a model; the `(direct national)` rows are the yardstick model fitted to the national total.
+
+### availability_forecast_test.csv
+Tomorrow's availability factor for every state and weather fuel, 1 Jan 2024 – 31 Mar 2025, by model (247,196 rows). Made in `09_availability_forecast.ipynb` (model log Step 17).
+
+| Column | Meaning |
+|---|---|
+| Date, State, Fuel_Type | Target day T (forecast made on T − 1) |
+| Model | `L0 persistence`, `L1 month profile`, `L4 LightGBM` (solar, wind), `physics, perfect weather`, `physics, day-ahead raw`, `physics, day-ahead anchored`, `average of anchored physics + L4`, **`best day-ahead`** (solar = average, wind = anchored, hydro = rolled bucket: the input for Stage 5) |
+| Weather | `none`, `perfect`, `persistence`, `day-ahead raw` or `day-ahead` (anchored) |
+| Forecast, Actual | Availability factor (0–1) |
+
+Day-ahead rows exist where forecasts do (complete from March 2024); scores use Mar 2024 – Mar 2025.
+
+### demand_forecast_dayahead.csv
+Stage 3 models L3, L4 and L6 (trained on actual weather) fed real day-ahead forecasts, monthly walk-forward from March 2024 (76,032 rows). Columns: Date, State, Model, Weather (`day-ahead` = anchored temperatures, `day-ahead raw`), Forecast, Actual (MW). Perfect and persistence-weather results for the same models are in `demand_forecast_test.csv`.
 

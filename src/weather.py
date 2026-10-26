@@ -216,6 +216,117 @@ def fetch_all_hourly(points, cache_dir=CACHE_HOURLY, fetch=fetch_hourly_point, v
 
 
 # ---------------------------------------------------------------------------
+# Day-ahead weather forecasts (Part 2, Stage 4)
+# ---------------------------------------------------------------------------
+# Open-Meteo keeps past forecast runs; "<var>_previous_day1" is the value for each
+# hour as forecast the day before: what a forecaster had on day D for day D+1.
+# Complete from March 2024 (temperature and radiation from mid-January).
+
+PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
+FORECAST_START, FORECAST_END = "2024-01-01", "2025-03-31"
+FORECAST_HOURLY = ["temperature_2m", "precipitation", "shortwave_radiation", "cloud_cover", "wind_speed_100m"]
+CACHE_FORECAST = ROOT / "data" / "cache" / "forecast_hourly"
+
+
+def parse_previous_runs(payload, start, end, variables=FORECAST_HOURLY):
+    """Previous-runs answer -> hourly DataFrame: Time + variables (day-ahead values). Empty hours stay NaN."""
+    if "hourly" not in payload:
+        raise ValueError(f"No hourly data in answer: {payload.get('reason', payload)}")
+    df = pd.DataFrame(payload["hourly"])
+    df["Time"] = pd.to_datetime(df.pop("time"))
+    expected = pd.date_range(start, pd.Timestamp(end) + pd.Timedelta(hours=23), freq="h")
+    if len(df) != len(expected) or not (df["Time"].to_numpy() == expected.to_numpy()).all():
+        raise ValueError(f"Expected {len(expected)} hours {start}..{end}, got {len(df)}")
+    df = df.rename(columns={f"{v}_previous_day1": v for v in variables})
+    missing = [v for v in variables if v not in df.columns]
+    if missing:
+        raise ValueError(f"Variables missing from answer: {missing}")
+    return df[["Time"] + list(variables)]
+
+
+def fetch_previous_runs_point(lat, lon, start=FORECAST_START, end=FORECAST_END, variables=FORECAST_HOURLY):
+    """Day-ahead hourly forecasts for one location, with the same retries as fetch_point."""
+    params = {"latitude": lat, "longitude": lon, "start_date": start, "end_date": end,
+              "hourly": ",".join(f"{v}_previous_day1" for v in variables), "timezone": TIMEZONE}
+    problem = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(PREVIOUS_RUNS_URL, params=params, timeout=120)
+            if response.status_code == 429 or response.status_code >= 500:
+                problem = f"HTTP {response.status_code} {response.text[:120]}"
+            else:
+                response.raise_for_status()
+                return parse_previous_runs(response.json(), start, end, variables)
+        except (requests.ConnectionError, requests.Timeout, requests.JSONDecodeError) as e:
+            problem = type(e).__name__
+        print(f"  {lat}, {lon}: {problem}, waiting {RETRY_WAIT_S} s (try {attempt + 1}/{MAX_RETRIES})")
+        time.sleep(RETRY_WAIT_S)
+    raise RuntimeError(f"Download failed {MAX_RETRIES} times ({lat}, {lon}): {problem}")
+
+
+def fetch_all_previous_runs(points, cache_dir=CACHE_FORECAST, fetch=fetch_previous_runs_point, verbose=True):
+    """Day-ahead hourly forecasts for every point: Point_ID, Time, variables. Each location downloaded once, cached."""
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    locations = points[["Lat", "Lon"]].drop_duplicates()
+    hourly = {}
+    for i, (lat, lon) in enumerate(locations.itertuples(index=False), 1):
+        path = cache_file(lat, lon, cache_dir)
+        if path.exists():
+            hourly[(lat, lon)] = pd.read_csv(path, parse_dates=["Time"])
+            continue
+        if verbose:
+            print(f"[{i}/{len(locations)}] downloading forecasts {lat}, {lon}")
+        df = fetch(lat, lon)
+        df.to_csv(path, index=False)
+        hourly[(lat, lon)] = df
+        time.sleep(PAUSE_S if fetch is fetch_previous_runs_point else 0)
+    out = pd.concat([hourly[(p.Lat, p.Lon)].assign(Point_ID=p.Point_ID) for p in points.itertuples()],
+                    ignore_index=True)
+    return out[["Point_ID", "Time"] + [c for c in out.columns if c not in ("Point_ID", "Time")]]
+
+
+def hourly_to_daily(hourly):
+    """
+    Hourly forecasts -> the same daily variables as the archive (DAILY_VARIABLES).
+    A day with any empty hour is left empty, so partial days are never mistaken for full ones.
+    """
+    h = hourly.assign(Date=hourly["Time"].dt.normalize())
+    g = h.groupby(["Point_ID", "Date"])
+    daily = pd.DataFrame({
+        "temperature_2m_max": g["temperature_2m"].max(),
+        "temperature_2m_mean": g["temperature_2m"].mean(),
+        "temperature_2m_min": g["temperature_2m"].min(),
+        "precipitation_sum": g["precipitation"].sum(min_count=24),
+        "shortwave_radiation_sum": g["shortwave_radiation"].sum(min_count=24) * 3600 / 1e6,   # W/m² hours -> MJ/m²
+        "cloud_cover_mean": g["cloud_cover"].mean(),
+        "wind_speed_100m_mean": g["wind_speed_100m"].mean(),
+    })
+    complete = g[FORECAST_HOURLY].count().min(axis=1) == 24
+    daily[~complete] = float("nan")
+    return daily.reset_index()
+
+
+def anchor_forecast(actual, forecast, variables=("temperature_2m_max", "temperature_2m_mean", "temperature_2m_min")):
+    """
+    Anchored forecast: tomorrow = today's actual + (forecast for tomorrow − forecast for today).
+
+    The forecast model is biased in a seasonal way (e.g. too sunny in the hazy dry season), and the
+    bias is about the same on consecutive days, so taking only the forecast *change* cancels it.
+    Both forecasts are known on day D (the one for D was issued on D − 1). Works on point or state
+    tables (key columns: Date plus Point_ID or State/Purpose); other columns are kept as forecast.
+    """
+    keys = [c for c in ("Purpose", "State", "Point_ID") if c in forecast]
+    variables = list(variables)
+    a = actual.set_index(keys + ["Date"])[variables]
+    f = forecast.set_index(keys + ["Date"])
+    previous_day = lambda t: t.rename(index=lambda d: d + pd.Timedelta(days=1), level="Date")
+    out = f.copy()
+    out[variables] = previous_day(a).reindex(f.index) + f[variables] - previous_day(f[variables]).reindex(f.index)
+    return out.dropna(subset=variables).reset_index()
+
+
+# ---------------------------------------------------------------------------
 # Points -> states
 # ---------------------------------------------------------------------------
 

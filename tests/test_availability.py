@@ -89,3 +89,27 @@ def test_match_level_keeps_shape():
     index = pd.Series(np.linspace(1, 2, len(DAYS)), index=DAYS)
     f = match_level(index, target=0.25)
     assert f.iloc[-1] / f.iloc[0] == pytest.approx(2.0)    # same ratios, new level
+
+
+# ---- anchored forecasts ----------------------------------------------------------------
+
+from availability import anchor_availability
+
+
+def test_anchoring_cancels_a_constant_forecast_bias():
+    dates = pd.date_range("2024-03-01", periods=10)
+    actual = pd.DataFrame({"Date": dates, "State": "X", "Fuel_Type": "Solar",
+                           "Factor": np.linspace(0.20, 0.30, 10)})
+    biased = actual.assign(Factor=actual.Factor + 0.05)          # forecast always 0.05 too high
+    out = anchor_availability(biased, actual).set_index("Date")["Factor"]
+    assert np.allclose(out, actual.set_index("Date")["Factor"].loc[out.index])   # bias gone
+
+
+def test_anchoring_leaves_hydro_alone_and_stays_in_range():
+    dates = pd.date_range("2024-03-01", periods=3)
+    actual = pd.DataFrame({"Date": list(dates) * 2, "State": "X", "Fuel_Type": ["Wind"] * 3 + ["Large Hydro"] * 3,
+                           "Factor": [0.9, 0.9, 0.9, 0.5, 0.5, 0.5]})
+    fcst = actual.assign(Factor=[0.1, 0.1, 0.6, 0.4, 0.4, 0.4])
+    out = anchor_availability(fcst, actual).set_index(["Fuel_Type", "Date"])["Factor"]
+    assert out[("Wind", dates[2])] == 1.0                       # 0.9 + 0.5 capped at 1
+    assert out[("Large Hydro", dates[2])] == 0.4                # unchanged

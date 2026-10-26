@@ -280,3 +280,40 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 **Output:** `data/processed/demand_forecast_test.csv` (206,112 rows: 11 models × weather cases × 32 states + National, every test day; L6 rows carry the 10–90% range). **For Stage 5:** L6 LightGBM median (pooled) as the main forecast, L4 as the alternative.
 
 **Not done here (Stage 6):** forecast horizons of 7 and 30 days, training-length tests, what-ifs.
+
+### Step 17 — Forecasting availability; demand with real weather forecasts (2026-10-26)
+**Why:** Part 2's O2 (forecast tomorrow's solar, wind and hydro availability), and a realistic weather case for O1: Stage 3 had only the bounds "perfect" and "persistence" weather.
+
+**Decisions (Stage 4, asked one at a time):**
+1. **Both approaches:** the Stage 2 physical rules run on real weather forecasts, and a statistical ladder; compared
+2. **True day-ahead forecasts:** Open-Meteo's previous-runs archive (`*_previous_day1`: each hour as forecast the day before). Complete from March 2024 → **every case scored on Mar 2024 – Mar 2025 (13 months)**
+3. Ladder for **solar and wind**; hydro forecast by **rolling the bucket forward** one day
+4. Score = national error in **available MW** per fuel; target skill ≥ 0.20 vs persistence for solar and wind
+5. **Anchoring** (decided after the first run, see below): tomorrow = today's actual + (forecast for tomorrow − forecast for today)
+
+**Defaults:** all 139 locations downloaded hourly (temperature, rain, radiation, cloud, 100 m wind), turned into the archive's daily variables (a day with any missing hour stays empty) and combined into states with the Stage 1 weights; each state's availability scale **frozen** from the actual-weather fit; demand models trained on actual weather and fed forecasts at test time ("perfect-prog").
+
+**Change from the plan:** "L5 = LightGBM + forecast weather" was dropped: trained on actual weather it would re-learn the Stage 2 rule (actual availability *is* that rule on actual weather). Replaced by the average of physics-on-forecasts and LightGBM.
+
+**Code:** `src/weather.py` (`fetch_all_previous_runs`, `hourly_to_daily`, `anchor_forecast`); `src/availability.py` (`build_availability(return_scales=True)`, `melt_scale`, `forecast_availability`, `anchor_availability`); `src/features.py` (`weather="day-ahead"`, `build_availability_features`); `src/forecast.py` (`walk_forward(test_f=..., to_forecast=...)`, `Today`, `MonthProfile`). 6 new tests (73 in total), incl. "anchoring cancels a constant bias" and "availability features can't see tomorrow". Checks: the refactor reproduces `availability_daily.csv`; actual weather fed in as the "forecast" reproduces actual availability exactly (validates the hydro roll-forward).
+
+**First run, raw forecasts — a surprise:** solar availability from forecasts was **worse than "same as today"** (skill −0.58), and demand with forecasts was no better than with today's weather. Cause: the forecast model's **seasonal bias**, not random error: solar +1 to +3.8 GW too high in the hazy dry months, −1.5 to −4.3 GW too low in the monsoon; wind mostly too low (to −4.0 GW in May), too high in Dec–Jan (+2.8 GW). Mixing forecast (tomorrow) and archive (today) in one "change" feature turned that bias into fake changes. **Anchoring** cancels it; raw results are kept in the notebook.
+
+**Results (`09_availability_forecast.ipynb`, Mar 2024 – Mar 2025):**
+
+| Fuel | Same as today | Raw forecast | Anchored | LightGBM (no forecast) | Average anchored + LightGBM |
+|---|---|---|---|---|---|
+| Solar | 1,375 MW | 2,171 (−0.58) | 1,155 (0.16) | 1,276 (0.07) | **921 (0.33)** |
+| Wind | 3,203 MW | 2,326 (0.27) | **1,647 (0.49)** | 3,175 (0.01) | 1,919 (0.40) |
+| Large hydro | 89 MW | — | **64 (0.28)** | — | — |
+| Small hydro | 39 MW | — | **27 (0.32)** | — | — |
+
+- **Best per fuel ("best day-ahead", saved for Stage 5):** solar = average, wind = anchored, hydro = rolled bucket. All renewables together: **1,937 MW, skill 0.45**. Targets met for solar and wind
+- Without a weather forecast, renewable output barely beats persistence (solar +7%, wind +1%); a monthly profile is far worse (−54%, −84%)
+- Wind is the largest supply uncertainty: 1.6 GW typical error even when forecast; Gujarat largest (1.0 GW), Rajasthan gains most (skill 0.40)
+- **Demand, real forecasts anchored:** L6 national MAE **2,623 MW, skill 0.48** (perfect 0.50, today's weather 0.43, raw forecasts 0.44). **0.48 is the realistic demand headline**
+- Forecast quality vs archive: temperature correlation 0.97–0.98 (MAE ~1 °C), wind 0.90, radiation 0.84, cloud 0.87, rain 0.59 (and 20% too little)
+
+**Outputs:** `data/raw/forecast_weather_daily.csv`; `data/processed/forecast_weather_state_daily.csv`, `availability_forecast_test.csv`, `demand_forecast_dayahead.csv`.
+
+**Limitations:** 13 scored months; anchoring was chosen after seeing the first run on the same months (a standard method; raw results kept); "actual" availability is our weather model, not measured generation; the hourly forecast cache (~1.6 M rows) is not in git and takes ~1–2 h to re-download.

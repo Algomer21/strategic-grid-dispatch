@@ -111,3 +111,18 @@ def test_walk_forward_never_trains_on_the_month_it_predicts():
 def test_lockdown_days_are_not_used_for_training():
     f = pd.DataFrame({"Date": pd.to_datetime(["2020-03-24", "2020-03-25", "2020-06-01", "2020-06-02"])})
     assert training_rows(f)["Date"].dt.strftime("%m-%d").tolist() == ["03-24", "06-02"]
+
+
+def test_availability_forecast_stays_between_0_and_1():
+    from forecast import factor_from_prediction
+    rows = pd.DataFrame({"Pred": [-0.2, 0.5, 1.3]})
+    assert factor_from_prediction(rows).tolist() == [0.0, 0.5, 1.0]
+
+
+def test_walk_forward_can_predict_other_rows_than_it_trains_on():
+    # perfect-prog: train on rows built from actual weather, predict rows built from forecasts
+    from forecast import Profile
+    f = toy_features()
+    test_f = f.assign(Base=f["Base"] * 2)          # different inputs for the same days
+    out = walk_forward(f, Persistence, start="2024-01-01", test_f=test_f)
+    assert np.allclose(out["Forecast"], out["Base"]) and out["Base"].iloc[0] == 2 * f["Base"].iloc[0]

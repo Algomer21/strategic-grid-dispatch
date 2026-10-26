@@ -89,29 +89,39 @@ def leaky_bucket(inflow, half_life_days, spin_up_days=SPIN_UP_DAYS):
     return pd.Series(out.to_numpy(), index=s.index)
 
 
-def snowmelt(tmean_c, rain_mm, threshold_c=MELT_THRESHOLD_C, share=MELT_SHARE,
-             match=(MATCH_START, MATCH_END)):
-    """
-    Degree-day melt (mm-equivalent), scaled so melt is `share` of all water
-    (rain + melt) over the matching period.
-    """
+def melt_scale(tmean_c, rain_mm, threshold_c=MELT_THRESHOLD_C, share=MELT_SHARE,
+               match=(MATCH_START, MATCH_END)):
+    """mm of melt per degree day, so melt is `share` of all water (rain + melt) over `match`."""
     degree_days = (pd.Series(tmean_c, dtype=float) - threshold_c).clip(lower=0)
-    rain = pd.Series(rain_mm, dtype=float)
     total_dd = degree_days.loc[match[0]:match[1]].sum()
     if total_dd == 0:
         raise ValueError("Never warmer than the melt threshold")
-    melt_total = rain.loc[match[0]:match[1]].sum() * share / (1 - share)
-    return degree_days * melt_total / total_dd
+    melt_total = pd.Series(rain_mm, dtype=float).loc[match[0]:match[1]].sum() * share / (1 - share)
+    return melt_total / total_dd
+
+
+def snowmelt(tmean_c, rain_mm, threshold_c=MELT_THRESHOLD_C, share=MELT_SHARE,
+             match=(MATCH_START, MATCH_END), scale=None):
+    """
+    Degree-day melt (mm-equivalent), scaled so melt is `share` of all water
+    (rain + melt) over the matching period. Pass `scale` (from melt_scale on actual
+    weather) to apply a fixed scale, e.g. to forecast temperatures.
+    """
+    degree_days = (pd.Series(tmean_c, dtype=float) - threshold_c).clip(lower=0)
+    if scale is None:
+        scale = melt_scale(tmean_c, rain_mm, threshold_c, share, match)
+    return degree_days * scale
 
 
 # ---------------------------------------------------------------------------
 # Index -> availability factor
 # ---------------------------------------------------------------------------
 
-def match_level(index, target, cap=CAP, match=(MATCH_START, MATCH_END), iterations=100):
+def match_level(index, target, cap=CAP, match=(MATCH_START, MATCH_END), iterations=100, return_scale=False):
     """
     Scale a daily index so its mean over `match` equals `target`, with no value above `cap`.
     Capping lowers the mean, so scale and cap are repeated until the mean fits.
+    return_scale=True also returns the scale, so it can be reused on forecast indices.
     """
     index = pd.Series(index, dtype=float)
     period = index.loc[match[0]:match[1]]
@@ -125,10 +135,25 @@ def match_level(index, target, cap=CAP, match=(MATCH_START, MATCH_END), iteratio
         if abs(mean - target) < 1e-9:
             break
         scale *= target / mean
-    return (index * scale).clip(upper=cap)
+    factor = (index * scale).clip(upper=cap)
+    return (factor, scale) if return_scale else factor
 
 
-def build_availability(state_weather, wind_output, gen, base=AVAILABILITY):
+def hydro_inflow(w, state, melt_k=None):
+    """Daily water into a state's hydro buckets: rain, plus snowmelt in Himalayan states."""
+    inflow = w["precipitation_sum"]
+    if state in HIMALAYAN_STATES:
+        inflow = inflow + snowmelt(w["temperature_2m_mean"], w["precipitation_sum"], scale=melt_k)
+    return inflow
+
+
+def weather_pairs(gen):
+    """(state, fuel) pairs with capacity of a weather-driven fuel."""
+    cap = gen.groupby(["State", "Fuel_Type"])["Capacity_MW"].sum()
+    return [k for k in cap[cap > 0].index if k[1] in WEATHER_FUELS]
+
+
+def build_availability(state_weather, wind_output, gen, base=AVAILABILITY, return_scales=False):
     """
     Daily availability factor for every (state, weather fuel) with capacity.
 
@@ -136,16 +161,12 @@ def build_availability(state_weather, wind_output, gen, base=AVAILABILITY):
     wind_output   : daily_wind_output() result (Series indexed by Date, State)
     gen           : generator stack (State, Fuel_Type, Capacity_MW)
 
-    Returns a long table: Date, State, Fuel_Type, Factor.
+    Returns a long table: Date, State, Fuel_Type, Factor. With return_scales=True also
+    returns the fitted scales: {(state, fuel): scale, ("melt", state): mm per degree day}.
     """
-    has_cap = gen.groupby(["State", "Fuel_Type"])["Capacity_MW"].sum()
-    has_cap = has_cap[has_cap > 0]
     sw = state_weather.set_index(["Purpose", "State", "Date"]).sort_index()
-
-    out = []
-    for (state, fuel) in has_cap.index:
-        if fuel not in WEATHER_FUELS:
-            continue
+    out, scales = [], {}
+    for (state, fuel) in weather_pairs(gen):
         if fuel == "Solar":
             w = sw.loc[("solar", state)]
             index = pd.Series(solar_index(w["shortwave_radiation_sum"], w["temperature_2m_max"]), index=w.index)
@@ -153,11 +174,63 @@ def build_availability(state_weather, wind_output, gen, base=AVAILABILITY):
             index = wind_output.xs(state, level="State")
         else:
             w = sw.loc[("hydro", state)]
-            inflow = w["precipitation_sum"]
             if state in HIMALAYAN_STATES:
-                inflow = inflow + snowmelt(w["temperature_2m_mean"], w["precipitation_sum"])
-            index = leaky_bucket(inflow, HALF_LIFE_DAYS[fuel])
-        factor = match_level(index, base[fuel])
+                scales[("melt", state)] = melt_scale(w["temperature_2m_mean"], w["precipitation_sum"])
+            index = leaky_bucket(hydro_inflow(w, state, scales.get(("melt", state))), HALF_LIFE_DAYS[fuel])
+        factor, scales[(state, fuel)] = match_level(index, base[fuel], return_scale=True)
+        out.append(pd.DataFrame({"Date": factor.index, "State": state, "Fuel_Type": fuel,
+                                 "Factor": factor.to_numpy()}))
+    table = pd.concat(out, ignore_index=True)
+    return (table, scales) if return_scales else table
+
+
+def forecast_availability(actual_weather, tomorrow_weather, tomorrow_wind, gen, scales):
+    """
+    Availability for each day T as forecast on day D = T − 1.
+
+    actual_weather   : actual state weather (weather_state_daily.csv): fills hydro buckets up to D
+    tomorrow_weather : the weather assumed for T, same layout (a day-ahead forecast, or the
+                       actual weather shifted one day for the persistence case)
+    tomorrow_wind    : daily wind output index for T from the same weather (Series by Date, State)
+    scales           : from build_availability(..., return_scales=True) on actual weather: the
+                       levels are frozen, never re-fitted on forecasts
+
+    Hydro: bucket_T = (1 − a) × bucket_D (actual) + a × inflow_T (assumed weather).
+    Days where the assumed weather is missing are dropped. Returns Date, State, Fuel_Type, Factor.
+    """
+    act = actual_weather.set_index(["Purpose", "State", "Date"]).sort_index()
+    tom = tomorrow_weather.set_index(["Purpose", "State", "Date"]).sort_index()
+    out = []
+    for (state, fuel) in weather_pairs(gen):
+        if fuel == "Solar":
+            w = tom.loc[("solar", state)]
+            index = pd.Series(solar_index(w["shortwave_radiation_sum"], w["temperature_2m_max"]), index=w.index)
+        elif fuel == "Wind":
+            index = tomorrow_wind.xs(state, level="State")
+        else:
+            a_w, t_w = act.loc[("hydro", state)], tom.loc[("hydro", state)]
+            melt_k = scales.get(("melt", state))
+            bucket = leaky_bucket(hydro_inflow(a_w, state, melt_k), HALF_LIFE_DAYS[fuel])
+            a = 1 - 0.5 ** (1 / HALF_LIFE_DAYS[fuel])
+            index = (1 - a) * bucket.shift(1).reindex(t_w.index) + a * hydro_inflow(t_w, state, melt_k)
+        factor = (index * scales[(state, fuel)]).clip(upper=CAP).dropna()
         out.append(pd.DataFrame({"Date": factor.index, "State": state, "Fuel_Type": fuel,
                                  "Factor": factor.to_numpy()}))
     return pd.concat(out, ignore_index=True)
+
+
+def anchor_availability(forecast, actual, fuels=("Solar", "Wind")):
+    """
+    Anchored availability forecast for `fuels`: tomorrow = today's actual factor +
+    (forecast factor for tomorrow − forecast factor for today), kept within 0-1.
+    Cancels the weather-forecast bias that persists from day to day (model log Step 17).
+    Other fuels (hydro: the rolled bucket) are returned unchanged.
+    """
+    keys = ["State", "Fuel_Type"]
+    fc_ = forecast.set_index(keys + ["Date"])["Factor"]
+    act = actual.set_index(keys + ["Date"])["Factor"]
+    previous_day = lambda t: t.rename(index=lambda d: d + pd.Timedelta(days=1), level="Date")
+    anchored = (previous_day(act).reindex(fc_.index) + fc_ - previous_day(fc_).reindex(fc_.index)).clip(0, 1)
+    use = fc_.index.get_level_values("Fuel_Type").isin(fuels)
+    out = fc_.where(~use, anchored).dropna()
+    return out.rename("Factor").reset_index()

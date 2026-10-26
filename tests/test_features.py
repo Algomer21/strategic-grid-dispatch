@@ -96,3 +96,32 @@ def test_unknown_state_in_holidays_is_an_error():
     hol.loc[1, "States"] = "Atlantis"
     with pytest.raises(ValueError):
         holiday_flags(DATES, STATES, hol)
+
+
+# ---- availability features -------------------------------------------------------------
+
+from features import build_availability_features
+
+
+def toy_availability(seed=1):
+    rng = np.random.default_rng(seed)
+    rows = [dict(Date=d, State=s, Fuel_Type="Wind", Factor=rng.uniform(0, 1)) for d in DATES for s in STATES]
+    weather = pd.DataFrame([dict(Date=d, State=s, Purpose="wind", wind_speed_100m_mean=rng.uniform(5, 30))
+                            for d in DATES for s in STATES])
+    return pd.DataFrame(rows), weather
+
+
+def test_availability_features_cannot_see_tomorrow():
+    avail, weather = toy_availability()
+    T = pd.Timestamp("2024-06-20")
+    before = build_availability_features(avail, weather, "Wind")
+    later = avail.Date >= T
+    avail2, weather2 = avail.copy(), weather.copy()
+    avail2.loc[later, "Factor"] = 0.99
+    weather2.loc[weather2.Date >= T, "wind_speed_100m_mean"] = 99
+    after = build_availability_features(avail2, weather2, "Wind")
+    cols = ["Base", "f_D", "f_3d", "f_7d", "wind_speed_100m_mean_D"]
+    r0 = before[(before.Date == T) & (before.State == "Kerala")].iloc[0]
+    r1 = after[(after.Date == T) & (after.State == "Kerala")].iloc[0]
+    assert r0[cols].equals(r1[cols])
+    assert r1["y"] == 0.99 and r0["f_D"] == avail[(avail.Date == T - pd.Timedelta(days=1)) & (avail.State == "Kerala")].Factor.iloc[0]

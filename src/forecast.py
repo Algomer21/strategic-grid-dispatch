@@ -210,25 +210,36 @@ class PerState:
         return out
 
 
-def walk_forward(f, make_model, start=TEST_START, end=None):
+def demand_from_ratio(rows):
+    """Forecast MW from a predicted log change ratio: today × exp(y)."""
+    return rows["Base"] * np.exp(rows["Pred"])
+
+
+def walk_forward(f, make_model, start=TEST_START, end=None, test_f=None, to_forecast=demand_from_ratio):
     """
     Refit each month on everything before it, then predict that month.
 
-    Returns f's test rows with column Pred (predicted y) and Forecast (MW).
+    test_f      : rows to predict, if different from the training rows (e.g. features built from
+                  day-ahead forecast weather, while training uses actual weather: "perfect-prog")
+    to_forecast : turns the predicted y into the forecast (default: demand from a change ratio)
+
+    Returns the test rows with column Pred (predicted y) and Forecast.
     """
-    f = f.sort_values(["Date", "State"]).reset_index(drop=True)
-    end = end or f["Date"].max()
+    keys = [c for c in ("Date", "State", "Fuel_Type") if c in f]
+    f = f.sort_values(keys).reset_index(drop=True)
+    test_f = f if test_f is None else test_f.sort_values(keys).reset_index(drop=True)
+    end = end or test_f["Date"].max()
     out = []
     for month_start in pd.date_range(start, end, freq="MS"):
         month_end = month_start + pd.offsets.MonthEnd(0)
         train = training_rows(f[f["Date"] < month_start])
-        test = f[f["Date"].between(month_start, month_end)]
+        test = test_f[test_f["Date"].between(month_start, month_end)]
         if test.empty:
             continue
         model = make_model().fit(train)
         out.append(test.assign(Pred=model.predict(test)))
     out = pd.concat(out, ignore_index=True)
-    out["Forecast"] = out["Base"] * np.exp(out["Pred"])
+    out["Forecast"] = to_forecast(out)
     return out
 
 
@@ -253,3 +264,38 @@ def national_features(f, demand):
         r_lastweek=np.log(lag(7) / lag(8)))
     out["y"] = np.log(out["Actual"] / out["Base"])
     return out.rename_axis("Date").reset_index().assign(State="National").dropna()
+
+
+# ---------------------------------------------------------------------------
+# Availability models (Stage 4, model log Step 17): y = tomorrow's factor (0-1)
+# ---------------------------------------------------------------------------
+
+AVAIL_FEATURES = {
+    "Solar": ["f_D", "f_3d", "f_7d", "shortwave_radiation_sum_D", "cloud_cover_mean_D",
+              "season_sin", "season_cos", "month_T"],
+    "Wind": ["f_D", "f_3d", "f_7d", "wind_speed_100m_mean_D", "season_sin", "season_cos", "month_T"],
+}
+
+
+class Today:
+    """L0 for availability: tomorrow's factor = today's."""
+    def fit(self, f):
+        return self
+
+    def predict(self, f):
+        return f["f_D"].to_numpy()
+
+
+class MonthProfile:
+    """L1 for availability: the state's average factor in that month."""
+    def fit(self, f):
+        self.mean = f.groupby(["State", "month_T"])["y"].mean()
+        return self
+
+    def predict(self, f):
+        return self.mean.reindex(pd.MultiIndex.from_frame(f[["State", "month_T"]])).to_numpy()
+
+
+def factor_from_prediction(rows):
+    """Forecast availability factor: the prediction, kept within 0-1."""
+    return rows["Pred"].clip(0, 1)
