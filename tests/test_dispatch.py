@@ -8,7 +8,8 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from dispatch import (AVAILABILITY, LossDispatchModel, availability_for_month, haversine_km,
+from dispatch import (AVAILABILITY, LossDispatchModel, availability_for_month, daily_availability_lookup,
+                      haversine_km,
                       load_coordinates, load_demand, load_generators, load_seasonal_availability,
                       loss_matrix, lp_dispatch, merit_order_dispatch)
 
@@ -112,3 +113,24 @@ def test_constant_availability_override_changes_nothing(day):
     model = LossDispatchModel(load_generators(), loss, states)
     assert model.solve(demand, AVAILABILITY)["total_cost"] == pytest.approx(model.solve(demand)["total_cost"])
 
+
+
+def test_state_fuel_override_changes_only_that_state(day):
+    # A (state, fuel) key wins over its fuel; per-fuel keys for the same values change nothing
+    demand, states, loss = day
+    model = LossDispatchModel(load_generators(), loss, states)
+    same = {**AVAILABILITY, ("Gujarat", "Wind"): AVAILABILITY["Wind"]}
+    assert model.solve(demand, same)["total_cost"] == pytest.approx(model.solve(demand)["total_cost"])
+
+    calm = {**AVAILABILITY, ("Gujarat", "Wind"): 0.0}
+    gen = model.solve(demand, calm)["generation"].set_index(["State", "Fuel_Type"])["Available_MW"]
+    assert gen[("Gujarat", "Wind")] == 0
+    assert gen[("Tamil Nadu", "Wind")] > 0                    # other states keep their wind
+
+
+def test_daily_availability_lookup_fills_other_fuels():
+    daily = pd.DataFrame({"Date": pd.to_datetime(["2024-07-01"]), "State": ["Gujarat"],
+                          "Fuel_Type": ["Wind"], "Factor": [0.6]})
+    day = daily_availability_lookup(daily)[pd.Timestamp("2024-07-01")]
+    assert day[("Gujarat", "Wind")] == 0.6
+    assert day["Coal"] == AVAILABILITY["Coal"]
