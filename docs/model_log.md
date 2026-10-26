@@ -317,3 +317,38 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 **Outputs:** `data/raw/forecast_weather_daily.csv`; `data/processed/forecast_weather_state_daily.csv`, `availability_forecast_test.csv`, `demand_forecast_dayahead.csv`.
 
 **Limitations:** 13 scored months; anchoring was chosen after seeing the first run on the same months (a standard method; raw results kept); "actual" availability is our weather model, not measured generation; the hourly forecast cache (~1.6 M rows) is not in git and takes ~1–2 h to re-download.
+
+### Step 18 — Forecasting tomorrow's prices: Route B (dispatch) vs Route A (direct) (2026-10-26)
+**Why:** Part 2's O3: forecast tomorrow's locational prices through the dispatch model, compare with a direct price model and persistence; plus O4's price ranges and O5's tightness index for Part 3.
+
+**Decisions (Stage 5, asked one at a time):**
+1. Route B runs: **actual, realistic** (L6 demand with anchored day-ahead weather + "best day-ahead" availability), **demand error only, supply error only, persistence**
+2. Route A: **national and pooled-state** direct models on the change ratio log(price_T / price_D): persistence → profile → linear + weather → LightGBM (mean, median); trained on actual weather, fed anchored day-ahead weather; monthly walk-forward
+3. Scoring: MAE and skill vs persistence (target 0.20) **+ jump detection** (national moves ≥ 200 Rs/MWh: recall, precision)
+4. Ranges: dispatch at the **L6 10% and 90% demand** forecasts (day-ahead weather)
+
+**Defaults:** scored Mar 2024 – Mar 2025; actual price = the Step 15 weather run; national price = demand-weighted (forecasts by forecast demand); persistence = today's price (equal to dispatching today's inputs); tightness = (available MW − demand) / demand per state and India.
+
+**Code:** `src/forecast.py`: `jump_scores`, `available_capacity`, `tightness`; `national_features(national=...)` now weights states by demand on D (identical for demand, needed for price). 3 new tests (76 in total). Check: the "actual" run reproduces the saved actual prices within 0.84 Rs/MWh (one day; 4-decimal rounding of saved factors).
+
+**Results (`10_price_forecast.ipynb`, national price):**
+
+| | MAE (Rs/MWh) | Skill | Jumps caught | Precision |
+|---|---|---|---|---|
+| Persistence | 132 | 0 | 0/87 | — |
+| **Route B realistic** | **63** | **0.53** | **58/87** | **73%** |
+| Route B demand error only | 48 | 0.64 | 66/87 | 84% |
+| Route B supply error only | 38 | 0.71 | 68/87 | 83% |
+| Route A national, LightGBM median (best A) | 127 | 0.04 | 0/87 | — |
+| Route A national, LightGBM | 149 | −0.12 | 26/87 | 46% |
+| Route A states, LightGBM | 156 | −0.18 | 34/87 | 37% |
+
+- **Route B meets the target nationally and in every state** (state skill 0.51–0.54: trade ties the prices together)
+- **Route A fails:** price history can't tell where the next coal-tier step is; the median model learns "no change", the mean model calls jumps at random. For a stepped price the structural model is necessary
+- **Demand error costs more than supply error** (48 vs 38 Rs/MWh alone); together 63 (partial cancellation)
+- **Ranges:** average 351 Rs/MWh, contain the actual on 93% of days; downside (195) ≈ upside (156) on average, but on 20% of days the upside is > 2× the downside (just below a step). My expectation of mostly upward risk was wrong
+- **Tightness:** India 22% spare on average (min 4.5%); forecast within 1.8 percentage points. Price by tightness fifth: Rs 2,653 (loosest) → 3,708 (tightest). Jumps most frequent in the middle fifths (32–34% of days), near the steps
+
+**Output:** `data/processed/price_forecast_test.csv` (92,268 rows).
+
+**Limitations:** the "actual" price is our dispatch model, so Route B uses the exact price mechanism and Route A must learn it (with real IEX prices Route B would also carry model error); 13 scored months; Route A not re-tuned for prices.

@@ -126,3 +126,30 @@ def test_walk_forward_can_predict_other_rows_than_it_trains_on():
     test_f = f.assign(Base=f["Base"] * 2)          # different inputs for the same days
     out = walk_forward(f, Persistence, start="2024-01-01", test_f=test_f)
     assert np.allclose(out["Forecast"], out["Base"]) and out["Base"].iloc[0] == 2 * f["Base"].iloc[0]
+
+
+# ---- prices ------------------------------------------------------------------------------
+
+def test_jump_scores_hand_example():
+    from forecast import jump_scores
+    today = [2700, 2700, 2700, 2700]
+    actual = [3450, 2700, 2200, 2750]          # up-jump, flat, down-jump, small move
+    forecast = [3400, 3000, 2700, 2750]        # catches the up-jump, false call on day 2, misses day 3
+    s = jump_scores(today, actual, forecast)
+    assert (s["real jumps"], s["called"], s["caught"]) == (2, 2, 1)
+    assert s["recall"] == 0.5 and s["precision"] == 0.5
+
+
+def test_jump_in_the_wrong_direction_is_not_caught():
+    from forecast import jump_scores
+    assert jump_scores([2700], [3450], [2200])["caught"] == 0
+
+
+def test_available_capacity_and_tightness():
+    from forecast import available_capacity, tightness
+    gen = pd.DataFrame({"State": ["A", "A"], "Fuel_Type": ["Coal", "Solar"], "Capacity_MW": [1000.0, 400.0]})
+    day = pd.Timestamp("2024-05-01")
+    factors = pd.DataFrame({"Date": [day], "State": ["A"], "Fuel_Type": ["Solar"], "Factor": [0.5]})
+    avail = available_capacity(gen, factors, [day], base={"Coal": 0.75, "Solar": 0.25})
+    assert avail.loc[day, "A"] == 1000 * 0.75 + 400 * 0.5          # 950 MW
+    assert tightness(avail, pd.DataFrame({"A": [760.0]}, index=[day])).loc[day, "A"] == pytest.approx(0.25)

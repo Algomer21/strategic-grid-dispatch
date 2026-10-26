@@ -243,17 +243,20 @@ def walk_forward(f, make_model, start=TEST_START, end=None, test_f=None, to_fore
     return out
 
 
-def national_features(f, demand):
+def national_features(f, demand, national=None):
     """
     One "National" row per day for the direct national yardstick model.
 
-    Demand ratios come from the national total; calendar and weather features are
-    averaged over states weighted by each state's demand on D (known on D), so
-    e.g. hol_T = share of India's load in states on holiday tomorrow.
+    The ratios come from the national series (default: total demand; pass e.g. the
+    national average price instead); calendar and weather features are averaged over
+    states weighted by each state's demand on D (known on D), so e.g.
+    hol_T = share of India's load in states on holiday tomorrow.
     """
-    national = demand.sum(axis=1)
+    national = demand.sum(axis=1) if national is None else national
     g = f.copy()
-    g["w"] = g["Base"] / g.groupby("Date")["Base"].transform("sum")
+    weight = demand.shift(1).stack().rename("w_demand")              # demand on D, by (T, state)
+    g = g.join(weight, on=["Date", "State"])
+    g["w"] = g["w_demand"] / g.groupby("Date")["w_demand"].transform("sum")
     cols = CALENDAR + WEATHER + WEATHER_LEVELS
     avg = g[cols].mul(g["w"], axis=0).groupby(g["Date"]).sum()
     first = f.groupby("Date")[["weekday_T", "month_T", "trend"]].first()
@@ -299,3 +302,51 @@ class MonthProfile:
 def factor_from_prediction(rows):
     """Forecast availability factor: the prediction, kept within 0-1."""
     return rows["Pred"].clip(0, 1)
+
+
+
+# ---------------------------------------------------------------------------
+# Prices (Stage 5, model log Step 18)
+# ---------------------------------------------------------------------------
+
+JUMP_RS = 200   # a national price move of at least this much (Rs/MWh) from today counts as a jump
+
+
+def jump_scores(today, actual, forecast, threshold=JUMP_RS):
+    """
+    How well a forecast sees big price moves coming.
+
+    A real jump: |actual − today| ≥ threshold. A called jump: |forecast − today| ≥ threshold.
+    A call is correct when a real jump happens in the same direction.
+    recall = correct calls / real jumps; precision = correct calls / calls.
+    """
+    move, call = np.asarray(actual) - np.asarray(today), np.asarray(forecast) - np.asarray(today)
+    real, called = np.abs(move) >= threshold, np.abs(call) >= threshold
+    correct = real & called & (np.sign(move) == np.sign(call))
+    return {"real jumps": int(real.sum()), "called": int(called.sum()), "caught": int(correct.sum()),
+            "recall": correct.sum() / real.sum() if real.any() else np.nan,
+            "precision": correct.sum() / called.sum() if called.any() else np.nan}
+
+
+def available_capacity(gen, daily_factors, dates, base=None):
+    """
+    Available MW per date and state: capacity × availability, with the weather fuels'
+    daily factors from `daily_factors` (Date, State, Fuel_Type, Factor) and every other
+    fuel at its constant factor. Returns a date × state table.
+    """
+    from dispatch import AVAILABILITY
+    base = AVAILABILITY if base is None else base
+    cap = gen.groupby(["State", "Fuel_Type"])["Capacity_MW"].sum()
+    rows = []
+    for d in dates:
+        f = cap.index.get_level_values("Fuel_Type").map(base).to_numpy(dtype=float)
+        day = daily_factors[daily_factors.Date == d].set_index(["State", "Fuel_Type"])["Factor"]
+        f = pd.Series(f, index=cap.index)
+        f.loc[day.index.intersection(cap.index)] = day
+        rows.append((cap * f).groupby(level="State").sum().rename(d))
+    return pd.DataFrame(rows)
+
+
+def tightness(available, demand):
+    """Spare capacity as a share of demand: (available − demand) / demand. Low = tight."""
+    return (available - demand) / demand

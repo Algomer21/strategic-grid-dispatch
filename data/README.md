@@ -176,6 +176,7 @@ Day-ahead weather forecasts at every point in `weather_points.csv`, 1 Jan 2024 �
 | forecast_weather_state_daily.csv | 09_availability_forecast | Day × state × purpose | Day-ahead forecast weather combined into states (same weights and columns as weather_state_daily) |
 | availability_forecast_test.csv | 09_availability_forecast | Day × state × weather fuel × model | Day-ahead availability forecasts, 2024 – Mar 2025 (details below) |
 | demand_forecast_dayahead.csv | 09_availability_forecast | Day × state × model × weather case | Stage 3 demand models fed real day-ahead forecasts, Feb 2024 – Mar 2025 (details below) |
+| price_forecast_test.csv | 10_price_forecast | Day × area × route × run | Tomorrow's price forecasts (Route B dispatch runs, Route A direct models), ranges and tightness, Mar 2024 – Mar 2025 (details below) |
 
 ### weather_state_daily.csv
 Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
@@ -230,4 +231,17 @@ Day-ahead rows exist where forecasts do (complete from March 2024); scores use M
 
 ### demand_forecast_dayahead.csv
 Stage 3 models L3, L4 and L6 (trained on actual weather) fed real day-ahead forecasts, monthly walk-forward from March 2024 (76,032 rows). Columns: Date, State, Model, Weather (`day-ahead` = anchored temperatures, `day-ahead raw`), Forecast, Actual (MW). Perfect and persistence-weather results for the same models are in `demand_forecast_test.csv`.
+
+### price_forecast_test.csv
+Tomorrow's price forecasts, Mar 2024 – Mar 2025 (92,268 rows). Made in `10_price_forecast.ipynb` (model log Step 18).
+
+| Column | Meaning |
+|---|---|
+| Date | Target day T (forecast made on T − 1) |
+| Area | A state, or `National` (demand-weighted average price) |
+| Route | `B` = forecasts through the dispatch model; `A` = direct price model |
+| Run | Route B: `actual`, `realistic`, `demand error only`, `supply error only`, `persistence`. Route A: `profile`, `linear + weather`, `LightGBM`, `LightGBM median` (national), `states LightGBM`, `states LightGBM median` |
+| Forecast, Actual | Price, Rs/MWh (actual = the Step 15 weather-availability dispatch run) |
+| Low, High | Route B realistic only: price with the 10% and 90% demand forecasts |
+| Tightness_forecast, Tightness_actual | (available MW − demand) / demand for that area and day (Part 3 input) |
 
