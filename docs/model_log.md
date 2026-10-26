@@ -379,3 +379,26 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 **Output:** `data/processed/scenario_results.csv` (72,468 rows).
 
 **Limitations:** uniform, year-round shocks; same coal factor everywhere; no ramping, reserves or demand response, so scarcity appears directly as unserved load priced at the value of lost load.
+
+### Step 20 — Part 3 forecast package, IEX price hook, Part 2 report (2026-10-26)
+**Why:** Part 2's O5 (hand Part 3 a view of tomorrow), the IEX compatibility promised in Step 11, and a written record of Part 2.
+
+**Forecast package (`12_part3_package.ipynb` → `data/processed/part3_forecast_package.csv`, 13,068 rows = 396 days × 32 states + National):** for each day and area, as forecast the day before: demand (L6 with real anchored day-ahead weather) with a 10–90% range (L6 quantile models re-run with day-ahead weather; India's range = sum of state ranges, conservative), available MW by fuel group (best day-ahead), price with low/high (Stage 5), tightness, and a **near-step flag** (forecast demand +2% through dispatch raises the national price ≥ 100 Rs/MWh); plus the actual values. Loaded with `load_forecast_package()` in `src/forecast.py`. Checks: complete, no gaps; India = sum of states; low ≤ high; price equals Stage 5's realistic run (within 0.01).
+- On the 44 days forecast to have < 10% spare capacity, forecast price Rs 3,754/MWh vs 3,736 actual
+- The forecast near-step flag finds 50% of actual near-step days; same answer on 79% of days; near-step days concentrate at 10–20% spare
+- State demand 10–90% range contains the actual 74.6% of the time
+
+**IEX hook (`src/prices.py`):** common price format (`Date, Area, Price, Source`); `load_prices("model" | "iex")`; `to_bid_areas` (state prices → IEX bid-area prices, demand-weighted); `compare_prices` (MAE, bias, correlation, matched jumps). `data/raw/iex_bid_areas.csv`: 32 states → 13 bid areas, researched from published tables (JETIR 2018 13-area table, MPRA 103161 and 72969, an IEX DAM/GDAM training module); **four flagged uncertain:** Goa (split North W2 / South S1; W2 chosen), Puducherry (S2; Yanam S1), Meghalaya (A2 now, A1 in older tables), Ladakh (not listed; N1 with J&K). The date the 13-area layout took effect could not be confirmed (between 2016 and 2018). No IEX data downloaded: the steps are in `data/README.md`. 5 tests on made-up market data (82 in total).
+
+**Report:** `reports/part2_forecasting.md` with six figures from `reports/make_part2_figures.py`. Writing it caught one inconsistency: the summary compared demand persistence over 15 months (4,842 MW) with the day-ahead forecast over 13 months; on the same 13 months persistence is 5,053 MW (2.32%), the forecast 2,623 MW (1.21%), skill 0.48.
+
+**Problems met:** two checks in notebook 12 were too strict or wrong at first (a price-match tolerance of 1e-6 against 4-decimal saved values; missing fuel groups left empty instead of 0 MW), both fixed.
+
+**End-to-end check:** notebooks 05–12 re-run in order from the committed data (results below the Part 2 summary).
+
+---
+
+## Part 2 summary
+Day-ahead (D → D+1) forecasts, out-of-sample, Mar 2024 – Mar 2025, vs "same as today": India demand skill **0.48** (2,623 vs 5,053 MW); solar availability **0.33**, wind **0.49**; national price **0.53** (63 vs 132 Rs/MWh) through the dispatch model, while a direct price model cannot beat persistence. Key lessons: the weekly rhythm is most of the easy demand gain; real weather forecasts must be anchored (their seasonal bias otherwise makes solar worse than persistence); a stepped price needs the structural model; price-forecast risk concentrates on step-edge days; a coal shortage is the largest single shock and shocks compound. Report: `reports/part2_forecasting.md`.
+
+**End-to-end check result (2026-10-26):** notebooks 05–12 re-run in order (08: 25 min; total ~38 min): no errors; every saved result is numerically identical (the Part 3 package byte-for-byte; notebook 07's dispatch files differed only in how some floats were written as text, largest numeric difference 0.0, so the committed copies were kept); 82 tests pass.

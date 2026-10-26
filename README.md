@@ -61,6 +61,7 @@ Run the checks for everything in `src/`:
 | `09_availability_forecast` | Forecasts tomorrow's solar, wind and hydro availability from real day-ahead weather forecasts (anchored to cancel their seasonal bias) and a statistical ladder; re-runs demand with real forecasts |
 | `10_price_forecast` | Forecasts tomorrow's prices through the dispatch model (Route B) and directly (Route A); splits the error into demand and supply causes; price ranges and a tightness index for Part 3 |
 | `11_scenarios` | What-if shocks through dispatch (demand +5%, drought, low-wind monsoon, coal shortage, all four) and price-forecast errors near coal-tier steps |
+| `12_part3_package` | Assembles the forecast package for Part 3 (demand, supply, price, ranges, tightness, step flag) and shows the IEX bid-area price hook |
 
 Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
@@ -76,13 +77,26 @@ State-level linear program, solved with `scipy.optimize.linprog` (HiGHS):
 
 Main limitations: daily peak only; renewable availability from assumed shapes (seasonal run) or physical rules not fitted to measured generation (weather run), with no time of day and coal constant all year; coal costs by state tier rather than by plant; no transmission limits; DVC excluded (no generator data).
 
+## Forecasting (Part 2)
+
+Day-ahead forecasts: on day D, forecast D+1 for every state. Full write-up: [`reports/part2_forecasting.md`](reports/part2_forecasting.md).
+
+- **Weather:** 151 points chosen by purpose (population-weighted cities, solar parks, wind zones, dams), Open-Meteo archive; real day-ahead forecasts from Open-Meteo's previous-runs archive, **anchored** (today's actual + forecast change) to cancel their seasonal bias
+- **Availability truth:** solar from radiation with panel heat loss, wind from a power curve on hourly 100 m wind, hydro from rain (+ snowmelt) "leaky buckets"; each state scaled to its Part 1 factor. Dispatch with it gives the "actual" prices
+- **Models:** predict the change from today; ladder persistence → profile → ridge → LightGBM (mean, median, quantiles); monthly walk-forward; trained on actual weather, fed forecasts in the test
+- **Prices:** Route B = forecast demand and supply through the dispatch model; Route A = direct price model (fails)
+- **Results (Mar 2024 – Mar 2025, vs "same as today"):** demand skill 0.48, solar 0.33, wind 0.49, national price 0.53
+- **Hand-off:** `data/processed/part3_forecast_package.csv`; IEX bid-area hook in `src/prices.py`
+
+Main limitations: the "actual" price is the model's own (not IEX); availability truth is modelled, not measured; 13 scored months with real forecasts; daily peak only.
+
 ## Workflow
 
 For each new feature: write the expected result → solve a tiny case by hand → code it in a notebook → test hand answers and edge cases → sanity-check against real-world numbers → move the working function to `src/` → commit → add a line to the progress log.
 
 ## Status
 
-🚧 Ongoing. Part 1 (dispatch) complete; Part 2 (forecasting) in progress; Part 3 (strategic bidding) next.
+🚧 Ongoing. Part 1 (dispatch) and Part 2 (forecasting) complete; Part 3 (strategic bidding) next.
 
 ## Progress Log
 
@@ -101,3 +115,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 13:** Downloaded real day-ahead weather forecasts for all 139 locations. Raw forecasts made solar *worse* than "same as today": the forecast model is too sunny in the hazy dry season and too cloudy in the monsoon. Anchoring (today's actual + forecast change) cancels that bias: tomorrow's wind availability error halves (skill 0.49), solar improves by a third (0.33), and demand with real forecasts reaches skill 0.48. Without a weather forecast, renewable output is barely more predictable than "same as today".
 - **Day 14:** Forecast tomorrow's prices. Pushing the demand and availability forecasts through the dispatch model halves the price error of "same as today" (skill 0.53) and flags two in three price jumps; a direct price model can't beat persistence, because price history doesn't know where the coal-tier steps are. Demand forecast error costs more than supply error. Prices climb from Rs 2,650 to 3,710/MWh as spare capacity shrinks.
 - **Day 15:** Stress-tested the market. One year of demand growth (+5%) raises prices 7.5%; a coal shortage is the biggest single shock (+23%, shortages on 17 days); all four shocks together double the price, because pressures compound near the top of the supply curve. A fifth of days sit near a coal-tier step, where price-forecast errors are 3.6× larger.
+- **Day 16:** Packaged everything Part 2 knows about tomorrow for Part 3 (demand, supply, price, ranges, tightness, a near-step flag), built the hook for comparing with real IEX prices by bid area, wrote the Part 2 report and re-ran notebooks 05–12 end to end. Part 2 complete.

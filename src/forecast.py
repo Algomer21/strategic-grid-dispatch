@@ -328,25 +328,64 @@ def jump_scores(today, actual, forecast, threshold=JUMP_RS):
             "precision": correct.sum() / called.sum() if called.any() else np.nan}
 
 
-def available_capacity(gen, daily_factors, dates, base=None):
+def available_by_fuel(gen, daily_factors, dates, base=None):
     """
-    Available MW per date and state: capacity × availability, with the weather fuels'
+    Available MW per date, state and fuel: capacity × availability, with the weather fuels'
     daily factors from `daily_factors` (Date, State, Fuel_Type, Factor) and every other
-    fuel at its constant factor. Returns a date × state table.
+    fuel at its constant factor. Returns a long table: Date, State, Fuel_Type, Available_MW.
     """
     from dispatch import AVAILABILITY
     base = AVAILABILITY if base is None else base
     cap = gen.groupby(["State", "Fuel_Type"])["Capacity_MW"].sum()
+    const = pd.Series(cap.index.get_level_values("Fuel_Type").map(base).to_numpy(dtype=float), index=cap.index)
+    by_day = daily_factors.set_index(["Date", "State", "Fuel_Type"])["Factor"]
     rows = []
     for d in dates:
-        f = cap.index.get_level_values("Fuel_Type").map(base).to_numpy(dtype=float)
-        day = daily_factors[daily_factors.Date == d].set_index(["State", "Fuel_Type"])["Factor"]
-        f = pd.Series(f, index=cap.index)
-        f.loc[day.index.intersection(cap.index)] = day
-        rows.append((cap * f).groupby(level="State").sum().rename(d))
-    return pd.DataFrame(rows)
+        f = const.copy()
+        if d in by_day.index.get_level_values("Date"):
+            day = by_day.xs(d, level="Date")
+            f.loc[day.index.intersection(cap.index)] = day
+        rows.append((cap * f).rename("Available_MW").reset_index().assign(Date=d))
+    return pd.concat(rows, ignore_index=True)[["Date", "State", "Fuel_Type", "Available_MW"]]
+
+
+def available_capacity(gen, daily_factors, dates, base=None):
+    """Available MW per date and state (all fuels): a date × state table."""
+    mw = available_by_fuel(gen, daily_factors, dates, base)
+    return mw.pivot_table(index="Date", columns="State", values="Available_MW", aggfunc="sum")
 
 
 def tightness(available, demand):
     """Spare capacity as a share of demand: (available − demand) / demand. Low = tight."""
     return (available - demand) / demand
+
+
+
+# ---------------------------------------------------------------------------
+# Part 3 hand-off (Stage 7, model log Step 20)
+# ---------------------------------------------------------------------------
+
+PACKAGE_COLUMNS = [
+    "Date", "Area",
+    "Demand_forecast", "Demand_Q10", "Demand_Q90", "Demand_actual",
+    "Solar_MW_forecast", "Wind_MW_forecast", "Hydro_MW_forecast", "Coal_MW_forecast", "Other_MW_forecast",
+    "Available_MW_forecast", "Available_MW_actual",
+    "Price_forecast", "Price_low", "Price_high", "Price_actual",
+    "Tightness_forecast", "Tightness_actual",
+    "Price_up2pct_forecast", "Near_step_forecast", "Near_step_actual",
+]
+
+
+def load_forecast_package(path=None):
+    """
+    Part 2's forecast package for Part 3: what was known on day D about day T, per state
+    and India (Area = "National"), Mar 2024 – Mar 2025. Columns ending in _forecast,
+    _Q10/_Q90 and _low/_high use only information available on D; *_actual are the outcomes.
+    """
+    from dispatch import PROCESSED
+    path = PROCESSED / "part3_forecast_package.csv" if path is None else path
+    pkg = pd.read_csv(path, parse_dates=["Date"])
+    missing = set(PACKAGE_COLUMNS) - set(pkg.columns)
+    if missing:
+        raise ValueError(f"Package is missing columns: {sorted(missing)}")
+    return pkg[PACKAGE_COLUMNS]

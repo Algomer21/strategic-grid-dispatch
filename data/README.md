@@ -156,6 +156,28 @@ Day-ahead weather forecasts at every point in `weather_points.csv`, 1 Jan 2024 �
 - The forecasts are biased by season (e.g. solar radiation too high in hazy dry months, too low in the monsoon), so Part 2 uses them *anchored*: today's actual + forecast change (model log Step 17)
 - Hourly data cached in `data/cache/forecast_hourly/` (not in git; ~1–2 h to re-download)
 
+### iex_bid_areas.csv
+Each of the 32 states → its IEX Day-Ahead Market **bid area** (13 areas: A1, A2, E1, E2, N1–N3, S1–S3, W1–W3) and grid region, for comparing model prices with real exchange prices (`src/prices.py`). Researched 2026-10-26 (model log Step 20).
+
+| Column | Meaning |
+|---|---|
+| State | As in the demand data |
+| Bid_area | IEX bid area |
+| Region | Grid region (NR, WR, SR, ER, NER) |
+| Note | Caveats; entries starting `UNCERTAIN` need checking |
+| Source | Published tables the mapping comes from |
+
+Sources: the 13-area table in JETIR (2018) [jetir.org/papers/JETIR1809063.pdf], MPRA papers 103161 (2020) and 72969 (12-area, 2008–14) [mpra.ub.uni-muenchen.de], an IEX DAM/GDAM training module (2021+). iexindia.com's own mapping page could not be reached. **Uncertain:** Goa (split: North W2, South S1; W2 used), Puducherry (S2; the Yanam enclave is S1), Meghalaya (A2 in the 13-area table, A1 in older ones), Ladakh (not listed; assumed N1 with J&K). The 13-area layout dates from between 2016 and 2018; before it Kerala was in S2.
+
+### iex_dam_daily.csv (not in the repo — to add later)
+Real IEX Day-Ahead Market prices, to compare with the model (`load_prices("iex")`, `compare_prices`). **How to add:**
+1. Download DAM area prices from iexindia.com (Market Data → Day-Ahead Market → Area Prices), for 1 Mar 2024 – 31 Mar 2025, 15-minute or hourly blocks for every bid area
+2. Aggregate to **one value per day and bid area that matches the model's daily *peak* price**: recommended, the average price of the 18:00–22:00 blocks (the evening peak). Note the choice in this README
+3. Save as `data/raw/iex_dam_daily.csv` with columns `Date, Bid_area, Price` (Rs/MWh)
+4. Compare: `prices.compare_prices(prices.to_bid_areas(model_state_prices, demand), prices.load_prices("iex"))` (example in `12_part3_package.ipynb`)
+
+Check IEX's terms of use before committing their data to a public repository.
+
 ## processed/
 
 | File | Made by | One row per | Contents |
@@ -178,6 +200,7 @@ Day-ahead weather forecasts at every point in `weather_points.csv`, 1 Jan 2024 �
 | demand_forecast_dayahead.csv | 09_availability_forecast | Day × state × model × weather case | Stage 3 demand models fed real day-ahead forecasts, Feb 2024 – Mar 2025 (details below) |
 | price_forecast_test.csv | 10_price_forecast | Day × area × route × run | Tomorrow's price forecasts (Route B dispatch runs, Route A direct models), ranges and tightness, Mar 2024 – Mar 2025 (details below) |
 | scenario_results.csv | 11_scenarios | Day × area × scenario | 2024 dispatch under what-if shocks: base, demand +5%, drought, low-wind monsoon, coal shortage, all four (details below) |
+| part3_forecast_package.csv | 12_part3_package | Day × area (32 states + National) | **The hand-off to Part 3:** tomorrow's forecasts as known the day before, next to actuals (details below) |
 
 ### weather_state_daily.csv
 Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
@@ -257,4 +280,19 @@ Dispatch results for every day of 2024 under six scenarios (72,468 rows). Made i
 | Price | Rs/MWh (national: demand-weighted average) |
 | Total_cost_Rs_per_h, Coal_MW | National rows only |
 | Unserved_MW | Demand not met |
+
+### part3_forecast_package.csv
+What was known on day D about day D+1, per state and India, Mar 2024 – Mar 2025 (13,068 rows = 396 days × 33 areas). Made in `12_part3_package.ipynb`; load with `load_forecast_package()` in `src/forecast.py` (model log Step 20).
+
+| Column | Meaning |
+|---|---|
+| Date, Area | Target day; a state or `National` |
+| Demand_forecast, Demand_Q10, Demand_Q90 | L6 forecast and 10% / 90% forecasts (MW), real anchored day-ahead weather. National Q10/Q90 = sums of state values (wider than a true national range) |
+| Demand_actual | MW |
+| Solar_MW_forecast, Wind_MW_forecast, Hydro_MW_forecast, Coal_MW_forecast, Other_MW_forecast | Forecast available MW by fuel group (best day-ahead factors; coal and others at constant factors) |
+| Available_MW_forecast, Available_MW_actual | Total available MW |
+| Price_forecast, Price_low, Price_high, Price_actual | Route B price (Rs/MWh) and the prices with 10% / 90% demand |
+| Tightness_forecast, Tightness_actual | (available − demand) / demand |
+| Price_up2pct_forecast | National price if forecast demand were 2% higher (same on every row of a day) |
+| Near_step_forecast, Near_step_actual | True if +2% demand raises the national price ≥ 100 Rs/MWh (forecast inputs / actual inputs) |
 
