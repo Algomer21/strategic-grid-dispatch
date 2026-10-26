@@ -265,9 +265,10 @@ class LossDispatchModel:
         """
         Dispatch one day. `demand` is a Series indexed by state (MW).
 
-        `availability` (dict fuel -> factor) overrides the plant limits for this day
-        only, e.g. a month's seasonal factors. None keeps the limits the model was
-        built with. Only the bounds change; the constraint matrix is reused.
+        `availability` overrides the plant limits for this day only. Keys are a fuel
+        ("Coal") for every state, or a (state, fuel) pair (("Gujarat", "Wind")) for one
+        state; a pair wins over its fuel. None keeps the limits the model was built
+        with. Only the bounds change; the constraint matrix is reused.
         """
         b_eq = demand.reindex(self.states).to_numpy(dtype=float)
         if np.isnan(b_eq).any():
@@ -275,7 +276,9 @@ class LossDispatchModel:
 
         bounds = self.bounds
         if availability is not None:
-            cap = self.gen["Capacity_MW"] * self.gen["Fuel_Type"].map(availability)
+            factor = [availability.get((s, f), availability.get(f, np.nan))
+                      for s, f in zip(self.gen["State"], self.gen["Fuel_Type"])]
+            cap = self.gen["Capacity_MW"] * np.array(factor, dtype=float)
             if cap.isna().any():
                 raise ValueError("Availability missing for some fuels")
             bounds = [(0, c) for c in cap] + self.bounds[len(self.gen):]
@@ -310,12 +313,22 @@ class LossDispatchModel:
         return {"states": states, "flows": flows, "generation": generation, "total_cost": res.fun}
 
 
-def run_all_days(model, demand_wide, seasonal=None):
+def daily_availability_lookup(daily, base=AVAILABILITY):
+    """
+    Long table (Date, State, Fuel_Type, Factor) -> {date: availability dict for solve()}.
+    Fuels not in the table (coal, gas, ...) keep their `base` factor.
+    """
+    return {date: {**base, **{(s, f): v for s, f, v in zip(g["State"], g["Fuel_Type"], g["Factor"])}}
+            for date, g in daily.groupby("Date")}
+
+
+def run_all_days(model, demand_wide, seasonal=None, daily=None):
     """
     Solve `model` for every date in `demand_wide`.
 
     seasonal=None uses the model's constant availability every day; pass the table
-    from load_seasonal_availability() to use each date's monthly factors.
+    from load_seasonal_availability() to use each date's monthly factors, or a
+    daily_availability_lookup() result as `daily` for per-state daily factors.
 
     Returns three tables: state_daily (date x state), flows_daily (date x trade)
     and national_daily (one row per date, incl. generation by fuel).
@@ -323,7 +336,12 @@ def run_all_days(model, demand_wide, seasonal=None):
     state_rows, flow_rows, national_rows = [], [], []
 
     for date, demand in demand_wide.iterrows():
-        availability = None if seasonal is None else availability_for_month(seasonal, date.month)
+        if daily is not None:
+            availability = daily[date]
+        elif seasonal is not None:
+            availability = availability_for_month(seasonal, date.month)
+        else:
+            availability = None
         out = model.solve(demand, availability)
         st, fl, gn = out["states"], out["flows"], out["generation"]
 
