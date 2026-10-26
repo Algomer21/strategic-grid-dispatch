@@ -113,3 +113,12 @@ def test_anchoring_leaves_hydro_alone_and_stays_in_range():
     out = anchor_availability(fcst, actual).set_index(["Fuel_Type", "Date"])["Factor"]
     assert out[("Wind", dates[2])] == 1.0                       # 0.9 + 0.5 capped at 1
     assert out[("Large Hydro", dates[2])] == 0.4                # unchanged
+
+
+def test_scale_availability_only_touches_chosen_fuels():
+    from availability import scale_availability
+    daily = pd.DataFrame({"Date": pd.Timestamp("2024-07-01"), "State": "X",
+                          "Fuel_Type": ["Large Hydro", "Small Hydro", "Wind"], "Factor": [0.6, 0.9, 0.5]})
+    out = scale_availability(daily, ["Large Hydro", "Small Hydro"], 0.7)
+    assert np.allclose(out.Factor, [0.42, 0.63, 0.5])
+    assert scale_availability(daily, ["Wind"], 3.0).Factor.iloc[2] == 1.0     # capped

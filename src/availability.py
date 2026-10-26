@@ -234,3 +234,15 @@ def anchor_availability(forecast, actual, fuels=("Solar", "Wind")):
     use = fc_.index.get_level_values("Fuel_Type").isin(fuels)
     out = fc_.where(~use, anchored).dropna()
     return out.rename("Factor").reset_index()
+
+
+def scale_availability(daily, fuels, factor, cap=CAP):
+    """
+    What-if helper: multiply the daily factors of `fuels` by `factor` (a number, or a Series
+    aligned with `daily`), keeping them within 0-cap. Other rows are unchanged.
+    """
+    out = daily.copy()
+    rows = out["Fuel_Type"].isin(fuels)
+    scale = factor[rows] if isinstance(factor, pd.Series) else factor
+    out.loc[rows, "Factor"] = (out.loc[rows, "Factor"] * scale).clip(0, cap)
+    return out

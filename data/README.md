@@ -177,6 +177,7 @@ Day-ahead weather forecasts at every point in `weather_points.csv`, 1 Jan 2024 �
 | availability_forecast_test.csv | 09_availability_forecast | Day × state × weather fuel × model | Day-ahead availability forecasts, 2024 – Mar 2025 (details below) |
 | demand_forecast_dayahead.csv | 09_availability_forecast | Day × state × model × weather case | Stage 3 demand models fed real day-ahead forecasts, Feb 2024 – Mar 2025 (details below) |
 | price_forecast_test.csv | 10_price_forecast | Day × area × route × run | Tomorrow's price forecasts (Route B dispatch runs, Route A direct models), ranges and tightness, Mar 2024 – Mar 2025 (details below) |
+| scenario_results.csv | 11_scenarios | Day × area × scenario | 2024 dispatch under what-if shocks: base, demand +5%, drought, low-wind monsoon, coal shortage, all four (details below) |
 
 ### weather_state_daily.csv
 Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
@@ -244,4 +245,16 @@ Tomorrow's price forecasts, Mar 2024 – Mar 2025 (92,268 rows). Made in `10_pri
 | Forecast, Actual | Price, Rs/MWh (actual = the Step 15 weather-availability dispatch run) |
 | Low, High | Route B realistic only: price with the 10% and 90% demand forecasts |
 | Tightness_forecast, Tightness_actual | (available MW − demand) / demand for that area and day (Part 3 input) |
+
+### scenario_results.csv
+Dispatch results for every day of 2024 under six scenarios (72,468 rows). Made in `11_scenarios.ipynb` (model log Step 19).
+
+| Column | Meaning |
+|---|---|
+| Date | Day |
+| Area | A state, or `National` |
+| Scenario | `base` (= the Step 15 actual run), `demand +5%`, `drought` (hydro × 0.7), `low-wind monsoon` (Jun–Sep wind at each state's worst monsoon month), `coal shortage` (coal 0.75 → 0.65), `all four` |
+| Price | Rs/MWh (national: demand-weighted average) |
+| Total_cost_Rs_per_h, Coal_MW | National rows only |
+| Unserved_MW | Demand not met |
 

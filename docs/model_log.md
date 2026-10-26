@@ -352,3 +352,30 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 **Output:** `data/processed/price_forecast_test.csv` (92,268 rows).
 
 **Limitations:** the "actual" price is our dispatch model, so Route B uses the exact price mechanism and Route A must learn it (with real IEX prices Route B would also carry model error); 13 scored months; Route A not re-tuned for prices.
+
+### Step 19 — What-if scenarios and step-edge price errors (2026-10-26)
+**Why:** Part 2's O4 (when do forecasts fail) and a bridge to Part 3: which shocks create the tight days where market power would bite.
+
+**Decisions:** Stage 6 tests chosen by me after the user expressed no preference: **what-if scenarios** (all four offered) and **step-edge price errors**. Skipped (noted as extensions): 7- and 30-day horizons, training-length tests.
+
+**Scenarios (all of 2024, vs the Step 15 actual run):** demand +5%; drought (large and small hydro × 0.7); low-wind monsoon (each state's Jun–Sep wind scaled so every month averages its worst monsoon month, day-to-day variation kept); coal shortage (coal 0.75 → 0.65); all four together. `scale_availability` in `src/availability.py` (1 new test, 77 in total). Check: the base scenario reproduces the actual 2024 prices.
+
+**Results (`11_scenarios.ipynb`; base 2024: Rs 3,069/MWh, 23% spare, no shortages):**
+
+| Scenario | Price | Cost | Days up a step | Unserved days | Days < 10% spare |
+|---|---|---|---|---|---|
+| Demand +5% | +230 (+7.5%) | +10.8% | 170 | 0 | 92 |
+| Drought | +135 | +4.6% | 74 | 0 | 41 |
+| Low-wind monsoon | +51 (June +254) | +3.2% | 30 | 0 | 18 |
+| Coal shortage | +720 (+23%) | +6.3% | 275 | 17 (max 3.4 GW) | 165 |
+| All four | +3,286 (+107%) | +35% | 363 | 156 (max 22.6 GW) | 313 |
+
+- Price is more sensitive than demand (5% → 7.5%): the supply curve is steep at the top
+- Coal shortage is the largest single shock and the only one causing shortages; worst in January (+2,281 Rs/MWh)
+- Shocks compound: ~1,140 Rs/MWh separately, 3,286 together
+- The north (J&K, Punjab, Haryana, Chandigarh, Uttarakhand) is hit most
+- **Step edges:** 21% of scored days sit near a step (+2% demand → ≥ 100 Rs/MWh). Route B error there is 146 vs 41 Rs/MWh elsewhere (skill 0.30 vs 0.60); correlation 0.39
+
+**Output:** `data/processed/scenario_results.csv` (72,468 rows).
+
+**Limitations:** uniform, year-round shocks; same coal factor everywhere; no ramping, reserves or demand response, so scarcity appears directly as unserved load priced at the value of lost load.
