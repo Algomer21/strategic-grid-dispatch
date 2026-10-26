@@ -120,11 +120,39 @@ Notes:
 - Points that share a place (e.g. a capital used for demand and solar) have identical rows
 - Rebuilding: re-run notebook 06. Each location is cached in `data/cache/weather/` (not in git); the free API allows ~100 five-year location downloads per hour, so a rebuild from an empty cache needs about 1.5 hours
 
+### holidays.csv
+Public holidays used as demand-forecast features, 1 Jan 2020 – 31 Mar 2025: 152 rows. Reviewed 2026-10-25 (model log Step 16).
+
+| Column | Meaning |
+|---|---|
+| Date | Holiday date |
+| Name | Holiday or festival |
+| Scope | `national` or `regional` |
+| States | `all`, or the states (`;`-separated, demand-data names) that observe it |
+| Source | URL or notification the date comes from |
+
+- **National (89):** the 17 gazetted holidays per year for Central Government offices in Delhi (DoPT office memoranda; read from gconnect.in copies, 2022 checked against a scan of the signed list because the copies had errors). Muharram 2021 uses the changed date (20 Aug). Moon-dependent dates (Id, Muharram) are as notified; short-notice changes announced on radio/TV would not appear
+- **Regional (63):** Durga Puja (Saptami–Navami; West Bengal's notified dates, assumed for Odisha, Assam, Tripura), Onam (Thiruvonam only), Pongal, Chhath (evening day only), Ganesh Chaturthi (2023 split: 18 Sep in Karnataka, Telangana, AP; 19 Sep in Maharashtra, Goa), Bohag Bihu (3 days), Ugadi / Gudi Padwa, Vaisakhi (Punjab only: optional holiday in Haryana)
+- Weekend holidays are kept as notified
+
+### paddy_dates.csv
+Start of paddy transplanting in Punjab and Haryana, 2020–2024 (10 rows): farm pumps switch on and demand jumps. Reviewed 2026-10-25 (model log Step 16).
+
+| Column | Meaning |
+|---|---|
+| State, Year | |
+| First_allowed | First date transplanting was allowed anywhere in the state |
+| Main_start | First date whole districts could start (**used for the flag**; differs in 2022 and 2023, when the first date covered only the strip beyond the border fence) |
+| Schedule | Zone schedule if staggered |
+| Source | Dated Tribune article |
+
+Punjab: 10 Jun 2020, 10 Jun 2021, 14 Jun 2022, 16 Jun 2023, 11 Jun 2024 (main start). Haryana: 15 June every year (fixed by the Haryana Preservation of Subsoil Water Act 2009). The paddy-season flag runs from `Main_start` to 30 September.
+
 ## processed/
 
 | File | Made by | One row per | Contents |
 |---|---|---|---|
-| india_electricity_data_updated.csv | 01_data_cleaning | Day × state (33) | Cleaned demand data: fixes applied, Essar steel and Jharkhand dropped, DD + DNH merged, gaps filled within each state |
+| india_electricity_data_updated.csv | 01_data_cleaning | Day × state (33) | Cleaned demand data: fixes applied, Essar steel and Jharkhand dropped, DD + DNH merged, 21 one-day demand spikes set to missing (4 cyclone days kept; model log Step 16a), gaps filled within each state |
 | dispatch_state_daily.csv | 03_dispatch_all_days | Day × state (32) | Constant-availability run: demand, generation, unserved, imports, exports, price |
 | dispatch_flows_daily.csv | 03_dispatch_all_days | Day × trade | From, to, MW sent, loss %, MW received |
 | dispatch_national_daily.csv | 03_dispatch_all_days | Day | Totals, losses, min/avg/max price, generation by fuel |
@@ -136,6 +164,7 @@ Notes:
 | dispatch_weather_state_daily.csv | 07_weather_availability | Day × state (32) | **Weather-availability run: the "actual" prices for Part 2.** Same columns as dispatch_state_daily |
 | dispatch_weather_flows_daily.csv | 07_weather_availability | Day × trade | As dispatch_flows_daily, weather-availability run |
 | dispatch_weather_national_daily.csv | 07_weather_availability | Day | As dispatch_national_daily, weather-availability run |
+| demand_forecast_test.csv | 08_demand_forecast | Day × area × model × weather case | Day-ahead demand forecasts for the test period (details below) |
 
 ### weather_state_daily.csv
 Daily weather per state and purpose: the weighted average of that state's points in `raw/weather_daily.csv`. 101 groups (32 demand, 32 solar, 9 wind, 28 hydro) × 1,948 days = 196,748 rows (~13 MB). Made by `combine_points` in `src/weather.py`, saved in `06_weather_data.ipynb`.
@@ -160,4 +189,19 @@ Share of nameplate capacity available each day for solar, wind, large hydro and 
 | Factor | 0–1, share of capacity available |
 
 How: solar from radiation with panel heat loss; wind from a power curve on hourly 100 m wind (hourly data cached in `data/cache/wind_hourly/`, not in git; ~1 h to re-download); hydro from leaky buckets of rain (+ snowmelt in 5 Himalayan states). Each state's 2020–24 mean is scaled to the Part 1 factor (solar 0.25, wind 0.30, large hydro 0.45, small hydro 0.40) and capped at 1.0. Coal and other fuels are not in the table: they keep their constant factors.
+
+### demand_forecast_test.csv
+Every Stage 3 model's day-ahead forecast for every test day (1 Jan 2024 – 31 Mar 2025), 206,112 rows. Made in `08_demand_forecast.ipynb` (model log Step 16).
+
+| Column | Meaning |
+|---|---|
+| Date | Target day T (forecast made on T − 1) |
+| State | One of the 32 states, or `National` for the direct national model |
+| Model | `L0 persistence`, `L0 last week`, `L1 profile`, `L2 linear`, `L3 linear + weather`, `L4 LightGBM`, `L5 linear per state`, `L5 LightGBM per state`, `L6 LightGBM median`, and `... (direct national)` |
+| Weather | `none` (model uses no weather), `perfect` (tomorrow's actual weather) or `persistence` (today's weather) |
+| Forecast | Forecast peak demand, MW |
+| Q10, Q90 | 10% and 90% forecasts (L6, perfect weather only; empty otherwise) |
+| Actual | Actual peak demand, MW |
+
+National = sum of the 32 state rows for a model; the `(direct national)` rows are the yardstick model fitted to the national total.
 

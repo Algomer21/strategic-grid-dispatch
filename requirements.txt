@@ -16,5 +16,6 @@ ipykernel
 # Testing: .venv/bin/python -m pytest
 pytest
 
-# Added later, when we reach those stages:
-# scikit-learn, statsmodels, xgboost  (forecasting)
+# Forecasting (Part 2): linear models and gradient-boosted trees
+scikit-learn
+lightgbm

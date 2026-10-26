@@ -149,6 +149,8 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - **States are harder:** persistence MAPE 2.4% (Chhattisgarh) to ~6–7% (small UTs, North-East); Punjab, Haryana and Tamil Nadu 5.4–5.8% (farm load, rainfall). Sum of state MAEs = 1.65 × the national MAE (state errors partly cancel)
 - Price baselines deferred to Stage 2, when the "actual" price is re-made with weather-based availability
 
+> **Updated in Step 16a** (spike fix): persistence MAE 4,842 MW, MAPE 2.22%, RMSE 6,501 → target MAE below ≈ 3,870 MW; last week MAPE 3.14%. **Correction:** the state range above was read from a cut-off table; the hardest states are Mizoram (9.2%) and Sikkim (10.3%), not ~6–7%.
+
 ### Step 13 — Weather points and weather data (2026-10-25)
 **Why:** demand depends on heat, and solar, wind and hydro depend on sun, wind and rain. Part 2 forecasts both, so it needs daily weather where the load and the plants are, not just at state capitals.
 
@@ -213,6 +215,68 @@ A dated record of every modelling and data step: what was done, why, the assumpt
 - **Day-to-day volatility up ~40%:** mean daily change 74 vs 53 Rs/MWh, std 422 vs 356; prices jump between coal-tier levels (~2,200 / ~2,750 / ~3,450)
 - **Price baselines (test 2024 – Mar 2025, deferred from Step 12):** persistence MAE 142 Rs/MWh, **MAPE 4.58%**, RMSE 261; last week MAPE 6.92%. Price is about twice as hard as national demand, and RMSE/MAE = 1.8 shows the errors come as jumps
 
+> **Updated in Step 16a** (spike fix): price persistence MAE 139 Rs/MWh, MAPE 4.48%, RMSE 255; mean daily change 73 Rs/MWh; other results unchanged to the reported precision.
+
 **Outputs:** `data/processed/availability_daily.csv`; `data/processed/dispatch_weather_{state,flows,national}_daily.csv` — the "actual" prices for Part 2. Constant (`dispatch_*`) and seasonal (`seasonal_*`) runs are kept for comparison.
 
 **Limitations:** the shapes are physical rules, not fitted to measured generation (CEA data could calibrate them); snowmelt share and threshold are single values for five states; hydro buckets ignore reservoir operating rules and pumped storage; daily averages, not the peak hour (Step 11, decision 3).
+
+---
+
+### Step 16a — One-day demand spikes fixed at source (2026-10-25)
+**Why:** building the Stage 3 features showed daily demand ratios up to e^4 (×50): a few days in the cleaned data were typos (Telangana 236 MW on 1 Oct 2023 between ~12,400 MW days; Tamil Nadu 933 MW; Sikkim 1,700 MW vs ~90; HP 4,309 vs ~1,700). They were also in Part 1's dispatch: Telangana "used" 236 MW that day.
+
+**Rule (`01_data_cleaning.ipynb`, before the gap fill):** `Max Demand Met` more than 65% away from its 7-day centred median (|log(value / median)| > 0.5) → missing → filled from the previous day like other gaps.
+
+**Exceptions — real events kept:** 4 flagged dips fall on cyclone landfalls: Goa 17 May 2021 (Tauktae), Bihar 28 May 2021 (Yaas), Mizoram 28 May 2024 (Remal), Puducherry 1 Dec 2024 (Fengal). Each flagged day was looked at with its week. Of the 21 fixed, a few small-state dips (Sikkim, Tripura, Chandigarh, Arunachal) and Rajasthan on 4 Feb 2024 (7,976 vs ~17,000 MW) could be real local outages; none matches a known event, so they are treated as errors. `Energy Met` is not cleaned this way: several of its dips are real cyclone days and no model uses it.
+
+**Checks:** 25 flagged → 21 set to missing, 4 kept; after the fill no spike is left except the 4 events (asserted). Goa's three "64 MW" days in Aug 2020 were one raw bad day plus copies made by the fill: fixed together.
+
+**Re-run:** notebooks 03, 04, 05, 07 (06 unaffected: none of its states changed). 22–23 days change price per run; largest change Rs 649/MWh (weather run, a coal-tier step). All 55 tests pass, including the 21 Jul 2024 reference value. Updated numbers are noted in Steps 12 and 15.
+
+**Lesson:** read the *whole* output before writing a conclusion: Step 12's state range was taken from a table cut off at 1,800 characters.
+
+### Step 16 — Day-ahead demand forecasting, L0–L6 (2026-10-25)
+**Why:** Part 2's O1: forecast every state's peak demand for tomorrow, better than "same as yesterday" by at least 20% (national skill ≥ 0.20).
+
+**Decisions (Stage 3, asked one at a time):**
+1. **Bottom-up:** 32 states, national = sum; a direct national model as a yardstick
+2. **Target = change ratio**, as y = log(demand_T / demand_D); forecast = demand_D × exp(y); y = 0 is persistence. (Trees can't predict above past records, so the level is carried by "today")
+3. **Degree days with fixed bases:** cooling above 24 °C, heating below 18 °C (daily mean), as tomorrow − today; trees also get raw temperatures
+4. **Holidays:** national gazetted + 8 major regional festivals (`holidays.csv`, 152 rows, sources per row; researched 2026-10-25, reviewed by the user)
+5. **Paddy flags** for Punjab and Haryana from each year's main transplanting start (`paddy_dates.csv`)
+6. **COVID:** target days 25 Mar – 1 Jun 2020 not used for fitting (still used as lag history)
+
+**Defaults:** walk-forward with monthly refits over Jan 2024 – Mar 2025 (15 months); two weather cases, *perfect* (tomorrow's actual weather) and *persistence* (today's weather); LightGBM tuned on 2023 only (trained on 2020–22; 24-setting grid, all within 2,411–2,598 MW, best: 31 leaves, learning rate 0.03, 800 trees, ≥ 100 rows per leaf); L2/L3 are ridge regressions (alpha 1) with one-hot weekday, month and state.
+
+**Setup problems:** pip could not reach PyPI (read timeouts, also from the user's own terminal, while curl worked), so scikit-learn 1.9.1 and LightGBM 4.7.0 wheels were downloaded with curl, checked against PyPI's SHA-256 digests and installed offline. Building the features exposed the one-day demand typos fixed in Step 16a.
+
+**Code:** `src/features.py` (feature table; 7 tests, incl. "changing demand on or after T, or weather after T, changes no feature of T" and "persistence weather never reads T's weather"); `src/forecast.py` (Persistence, LastWeek, Profile, Linear, Trees, PerState, walk_forward, national_features; 5 tests, incl. "walk-forward never trains on the month it predicts" and the lockdown exclusion). 67 tests in total. Persistence through the new code reproduces notebook 05 exactly (4,842 MW).
+
+**Results (`08_demand_forecast.ipynb`, national, perfect weather):**
+
+| Step | MAE | MAPE | Skill |
+|---|---|---|---|
+| L0 persistence | 4,842 MW | 2.22% | 0 |
+| L0 last week | 6,841 | 3.14% | −0.41 |
+| L1 profile | 3,344 | 1.54% | 0.31 |
+| L2 linear | 3,101 | 1.42% | 0.36 |
+| L3 linear + weather | 2,834 | 1.30% | 0.42 |
+| L4 LightGBM | 2,542 | 1.17% | 0.48 |
+| L5 linear per state | 2,726 | 1.25% | 0.44 |
+| L5 LightGBM per state | 2,508 | 1.16% | 0.48 |
+| **L6 LightGBM median** | **2,416** | **1.11%** | **0.50** |
+
+- **Target met from L1 upward.** Each step added something
+- Weather worth ~10%: with persistence weather L4 is 2,793 MW (skill 0.42), L6 2,711 (0.44)
+- Per-state linear beats pooled linear; per-state LightGBM ≈ pooled nationally but worse for states (MAPE 3.64% vs 3.43%) and 8× slower → pooled LightGBM preferred
+- Bottom-up ≥ direct national (L4: 2,542 vs 2,646 MW)
+- L6 10–90% range covers 75% of actuals (target 80%), width 9.4% of demand: slightly overconfident
+- L3 coefficients: 23% of last week's same-weekday change repeats; 16% of today's jump reverses; holiday tomorrow −2.2%; first paddy day +3.8%; +1 cooling degree day +1.6%; rain −0.07%/mm
+- Fixed: Mondays 10.2 → 2.9 GW, Sundays 8.2 → 2.3 GW, **heatwave (17 May – 19 Jun 2024) 4.8 → 2.2 GW**
+- **Still weak: national holidays** (7.4 GW vs 2.3 GW on other days). Under-forecast drops on Holi 2025 (19.9 GW) and Diwali 2024 (15.3 GW); predicted dips that didn't happen on Maha Shivratri 2025 (14.6 GW) and Good Friday 2024 (10.9 GW). All holidays are treated alike → a major/minor holiday feature is the next improvement
+- Every state improves on persistence: most Tamil Nadu (0.52), least J&K (0.05), Odisha (0.07), Manipur (0.08)
+
+**Output:** `data/processed/demand_forecast_test.csv` (206,112 rows: 11 models × weather cases × 32 states + National, every test day; L6 rows carry the 10–90% range). **For Stage 5:** L6 LightGBM median (pooled) as the main forecast, L4 as the alternative.
+
+**Not done here (Stage 6):** forecast horizons of 7 and 30 days, training-length tests, what-ifs.
