@@ -404,3 +404,135 @@ Part 3 (strategic bidding) follows the plan in [`part3_plan.md`](part3_plan.md),
 Day-ahead (D → D+1) forecasts, out-of-sample, Mar 2024 – Mar 2025, vs "same as today": India demand skill **0.48** (2,623 vs 5,053 MW); solar availability **0.33**, wind **0.49**; national price **0.53** (63 vs 132 Rs/MWh) through the dispatch model, while a direct price model cannot beat persistence. Key lessons: the weekly rhythm is most of the easy demand gain; real weather forecasts must be anchored (their seasonal bias otherwise makes solar worse than persistence); a stepped price needs the structural model; price-forecast risk concentrates on step-edge days; a coal shortage is the largest single shock and shocks compound. Report: `reports/part2_forecasting.md`.
 
 **End-to-end check result (2026-10-26):** notebooks 05–12 re-run in order (08: 25 min; total ~38 min): no errors; every saved result is numerically identical (the Part 3 package byte-for-byte; notebook 07's dispatch files differed only in how some floats were written as text, largest numeric difference 0.0, so the committed copies were kept); 82 tests pass.
+
+---
+
+## Part 3 — Strategic bidding and market power
+
+Plan: [`part3_plan.md`](part3_plan.md).
+
+### Step 21 — Firms and bidding roles (2026-10-27)
+**What:** `src/bidding.py` with `ROLES` (fuel → role) and `firm_blocks(gen)`, which adds a `Firm` and a `Role` to every generator block (`13_market_structure.ipynb`, Stage 0).
+
+**Decisions:**
+- **One firm per state** (plan, Decision 2): a block's firm is its state
+- **Roles:** coal, lignite, gas, large and small hydro are *strategic* (bid cost + adder, may withhold); solar and wind are *must-run* (bid 0, never withheld, paid the clearing price); nuclear, biopower and diesel bid *cost*
+- **Change from the plan:** the roles are a constant in `src/bidding.py`, not `data/raw/firm_ownership.csv`. With one firm per state, a 161-row file would only repeat the generator stack. A file comes back if a firm owning *shares* of blocks (the NTPC-like scenario) is added
+
+**Checks:** 4 tests (86 in total): the 4-block toy case solved by hand; an unknown fuel raises an error naming it; the input table is not changed; on the real stack 161 blocks = 85 strategic + 41 must-run + 35 cost.
+
+**Result:**
+- **30 firms** have strategic blocks; Chandigarh and DD & DNH have none (they only own must-run or cost blocks)
+- 24 firms have at least 1 GW of strategic nameplate capacity; the largest are UP 32.7 GW, Maharashtra 29.6, Gujarat 24.8, Chhattisgarh 24.3 and MP 23.5; the smallest Goa (0.05 MW of hydro), Puducherry (32 MW) and Mizoram (105 MW)
+
+### Step 22 — Market structure: shares, HHI, RSI, pivotal firms (2026-10-27)
+**What:** Stage 1 of the plan, no optimisation (`13_market_structure.ipynb`). New in `src/bidding.py`: `REGIONS`, `firm_supply`, `shares`, `hhi`, `rsi`, `joint_rsi`. Days: 1 Mar 2024 – 31 Mar 2025 (396). Supply: Part 2's weather-based availability; demand and losses: the competitive run (`dispatch_weather_national_daily.csv`).
+
+**Decisions (asked one at a time):**
+1. **A firm's supply = its strategic blocks only** (coal, lignite, gas, hydro): what it can price high or withhold. Counting all blocks instead gives 116 pivotal days led by Gujarat (its solar), not 53 led by UP
+2. **Requirement = demand + that day's losses** (avg 1,680 MW; ~18% of spare capacity on the tightest days). Approximation: losses would shift a little under withholding. Demand only gives 39 days
+3. **Shares and HHI on daily available strategic capacity**; installed capacity as one reference line
+4. **Three pivotal tests:** single (RSI < 1), near-pivotal (RSI < 1.1), jointly pivotal (2 or 3 largest firms together, RSI < 1)
+5. **National market; regional shares descriptive only** (Part 1's five regions; no regional market without line limits)
+
+**Checks:** 6 new hand-solved tests (3-firm toy: shares 50/30/20, HHI 3,800, RSI 0.667/0.889/1.0, joint RSI 0.333/0.111; strategic-only supply; unknown block raises; every state has a region): 92 tests in total. Shares add up to 100% every day; RSI never negative. **The plan's preview is reproduced exactly** (53 days, UP on all 53). Correction: in the decision-1 discussion it was said the preview had counted all blocks; it had in fact used exactly the agreed definition.
+
+**Result:**
+- **HHI 696** on average (651–732; installed 645): "unconcentrated", yet **53 days (13%) have a pivotal firm**. Concentration ≠ market power
+- Pivotal firms: **UP 53 days**, Maharashtra 26, Chhattisgarh 21, MP 17, Gujarat 9, Tamil Nadu 5, Andhra Pradesh 4, West Bengal 3, Telangana 3
+- **Rivals pivotal together:** 2 or more firms pivotal on 26 of the 53 days (up to 9)
+- Test counts: 3 largest jointly 312 days, near-pivotal 219, 2 largest jointly 201, single 53
+- **Hypothesis "summer" was wrong:** 35 of the 53 days are in Jan–Feb 2025 (summer 2024: 10). Winter's low wind and hydro (Step 10) plus demand growth beat the summer peak
+- **Hypothesis "tight and near a coal-tier step" half wrong:** all 53 days have 5–11% spare (lowest RSI ≈ tightness, correlation 0.998), but only 9% are near a step (21% of all days). On pivotal days the competitive price is already high (Rs 3,748 vs 3,039). Two kinds of risky day: **pivotal** (very tight, price near the top tier, a firm could push towards the cap) and **near-step** (10–20% spare, a small withholding could jump the price one tier). Stage 3 tests both
+- Regions (descriptive): every region concentrated (HHI 2,400–3,200); UP holds 46% of the North's strategic capacity
+
+**Caveat:** on 50 days total supply is below 1.1 × requirement, so every firm passes the near-pivotal test (even firms with almost no capacity). Per-firm near-pivotal counts only mean something for large firms. No day has total supply below the requirement at cost.
+
+**Outputs:** `data/processed/market_structure_daily.csv` (date × firm), `market_structure_national_daily.csv` (date).
+
+### Step 23 — Bids inside the LP (2026-10-27)
+**What:** Stage 2 tooling. `LossDispatchModel.solve(..., costs=)` in `src/dispatch.py`: per-day bids with the same keys as `availability` (fuel or (state, fuel)); blocks not given bid their true cost; every bid must be below VOLL; the result's `generation` table adds a `Bid` column and keeps the true cost. New in `src/bidding.py`: `MAX_BID`, `make_bids`, `make_availability` (withholding), `firm_profit`, `consumer_cost`, `generation_cost`. Demonstrated at the end of `13_market_structure.ipynb`.
+
+**The key idea:** every block has a **bid** (what the market sees; dispatch runs cheapest bid first) and a **true cost** (used for profit). Profit = Σ (home-state price − true cost) × MW, including the firm's must-run solar and wind.
+
+**Decisions:**
+1. **Highest bid Rs 8,990** (`MAX_BID = VOLL × (1 − LOSS_MAX) − 10`). VOLL is also the price cap (Rs 10,000). First chosen: Rs 9,990, just below VOLL, so a bid at the cap can't tie with leaving demand unserved. **That was not enough:** on the real grid, power bid at b costs b ÷ (1 − loss) where it lands, so with UP bidding 9,990 on 30 Jan 2025 distant states found a blackout at Rs 10,000 "cheaper" than imports, and **14,390 MW went unserved** (the hand example has no losses, so its test passed). With the longest route losing 10%, a bid of at most 10,000 × 0.9 keeps delivered power at or below 10,000; Rs 10 less keeps it strictly below (at exactly 9,000 the longest routes tie with VOLL again). Now every state is served while supply exists and no state's price exceeds the cap, as on the IEX where every area price is capped
+2. **Raised bids get +Rs 1:** bid = cost + adder + 1 when the adder is above 0, capped at `MAX_BID`. Costs are round hundreds and adders steps of 250, so 6 combinations would otherwise land exactly on another block's cost (e.g. lignite 2,300 + 500 = inland coal 2,800; Maharashtra coal 2,800 + 1,000 = coastal coal 3,800), making dispatch arbitrary. Adder 0 = true cost, unchanged. Two strategic firms with the same cost and adder can still tie; Stage 5 will flag those days
+
+**Checks:** 10 new tests (102 in total):
+- the plan's hand example: A bids 1,501 → price 2,000, profit **80,000**; A bids the cap → price 8,990, A sells 50 MW, profit **399,500**, no unserved, consumer cost 899,000, true generation cost 150,000 (not bids)
+- a bid at or above VOLL raises an error; lignite 2,300 + 500 → **2,801**; adder 0 → no bid change; only strategic blocks get adders
+- withholding 0 changes nothing; 30% scales only the firm's strategic blocks (not its solar, not other states); a share outside 0–1 raises
+- **bidding true cost through `costs=` reproduces the saved competitive run exactly** on 30 May 2024, 21 Jul 2024 and 10 Feb 2025 (largest price difference 0.0)
+- **regression test:** UP or Maharashtra bidding the cap on 30 Jan 2025 → no unserved demand, every state's price below Rs 10,000
+
+**First look on real data** (UP on its tightest day, 30 Jan 2025: RSI 0.939, 5% spare; a handful of strategies, Stage 3 searches properly):
+
+| Strategy | UP price | UP profit (Rs lakh/h) | Consumer cost |
+|---|---|---|---|
+| Bid cost | 3,722 | 411 | — |
+| +500 | 3,722 | 411 | +0% (UP's blocks don't set the price at this adder) |
+| +2,000 | 4,201 | 482 | +12% |
+| Cap (8,990) | 8,990 | **1,209** | **+139%** |
+| Withhold 10% | 3,790 | 392 | +2% |
+| Withhold 30% | 4,540 | 462 | +21% |
+
+A pivotal UP bidding the cap almost triples its profit and more than doubles what consumers pay; on this day raising the bid pays more than withholding.
+
+### Step 24 — One strategic firm, one day (2026-10-27)
+**What:** Stage 3. New in `src/bidding.py`: `bid_candidates`, `evaluate`, `best_response`. Notebook `14_strategic_bidding.ipynb`.
+
+**Decisions (asked one at a time):**
+1. **Bid candidates = rival levels + regular grid, then refine:** Rs 1 below every other block's bid level (a price-setting firm's profit rises with its bid until it passes a rival), the cap, and adders every Rs 250 as a safety net; then every Rs 25 within ±250 of the best
+2. **Withholding searched jointly, coarse then fine:** every bid candidate × 0, 10, 20, 30%; then ±5% around the best. Bidding cost is always tried, so the best never earns less
+3. **UP on four kinds of day:** pivotal (lowest RSI, 30 Jan 2025, 5% spare), near-step (10–20% spare, near-step flag, UP not pivotal: 6 Feb 2025, 12%), ordinary (median spare among days not near a step: 17 Mar 2024, 23%), slack (most spare: 25 Aug 2024, 53%)
+
+**Checks:** 4 new tests (106 in total): pivotal toy → bid the cap, profit 399,500; non-pivotal toy (firm 80 MW at Rs 1,000, rival 100 MW at Rs 3,000, demand 70) → bid 2,999, profit 139,930; candidates include cost, cap and rival − 1; the best never earns less than bidding cost. (The plan's version of the non-pivotal test used demand 100; there the firm can't cover demand alone, so the rival sets the price at 3,000 whatever the firm bids. Changed to 70.) Both toy answers also reproduced in the notebook.
+
+**Result (UP, everyone else at cost):**
+
+| Day | Spare | UP's best coal bid | UP profit | Consumers pay | Hypothesis |
+|---|---|---|---|---|---|
+| Pivotal | 5% | 8,976 (near the cap) | 3.0× (411 → 1,218 lakh/h) | +139% (+Rs 124 crore/h) | ✅ near the cap |
+| Near-step | 12% | 3,701 (one tier, under coastal coal) | +11% | +5% | ✅ one tier |
+| Ordinary | 23% | 3,299 | +36% | +21% | ❌ expected little |
+| Slack | 53% | 2,701 (under inland coal) | 2.0× (44 → 89 lakh/h) | +21% | ❌ expected none |
+
+- **Market power without a tight market:** the slack day's spare capacity is mostly expensive plant. When UP prices its coal up to just under the next tier, the cheaper rivals are already flat out, so UP still sets the price. The RSI counts all spare capacity at any cost, so it misses this; with a stepped supply curve the marginal firm has room up to the next step on almost any day. Stage 4 must therefore look at **all** days, not only pivotal ones
+- **Consumers lose far more than UP gains** (slack day: UP +Rs 0.45 crore/h, consumers +Rs 9.6 crore/h): every plant that runs is paid the higher price
+- **Raising the bid always beats withholding**; the joint search never improves on the best single family (gain 0% on all four days). Withholding alone still pays (+2% to +18%), relevant for a must-offer rule (Stage 7)
+- **Efficiency loss small:** true generation cost +0.2% to +3.8%. The harm is in prices, not wasted fuel
+- **The safety-net grid matters:** the near-step best (3,701) came from the regular grid, not from "Rs 1 below a rival" (3,799): with losses UP must undercut a rival's price where UP's power lands
+- **Caveat:** "UP" owns all 32.7 GW of strategic capacity in the state (one firm per state). Real ownership is split (NTPC, state utility, private), so these markups are an upper bound; splitting the largest firm is a Stage 7 what-if
+
+**Timing:** 1.3 s per best response (211 strategies, 6 ms per market run). Projections: Stage 4 UP alone 8 min, nine pivotal firms 76 min; Stage 5 with 24 firms ≥ 1 GW and 5 rounds ~17 h on 396 days, ~2.5 h on a 60-day sample.
+
+### Step 25 — Market power on a sample of days: alone vs together (2026-10-27)
+**Why a sample:** one strategy search takes ~1.3 s (Step 24); all 396 days with 24 firms and up to 5 equilibrium rounds would take hours. Decision (user): **hold the full runs, simulate a sample across the spectrum of conditions now.** The full-run code (`src/run_part3.py`, notebooks `15_market_power_all_days`, `16_bidding_with_forecasts`, `17_what_ifs`, and the Stage 4–7 functions in `src/bidding.py`: `equilibrium`, `players`, `market_summary`, `contract_profit`, parallel `job_*` / `run_parallel`) was written in a parallel session on 27 Oct and started there; that run was stopped (by the user) and its outputs are not used. The functions were reviewed here and are covered by tests (111 passing, incl. a hand-solved two-firm equilibrium, rival bids as undercut levels, contracts).
+
+**Design (approved as one plan):**
+- **Days (11):** two per tightness band (< 10%, 10–15%, 15–20%, 20–30%, ≥ 30% spare), one near a coal-tier step and one not, each the day closest to its band's middle; plus 30 May 2024 (national peak)
+- **Firms (5):** UP, Maharashtra, Chhattisgarh, MP, Gujarat: the five most often pivotal, 45% of strategic capacity. Everyone else bids cost
+- **A — alone:** each firm's best response with everyone else at cost
+- **B — together:** `equilibrium()`: start at cost; each round every firm in turn (fixed order, UP first) picks its best bid given the others' current bids, moving only if it gains > Rs 1,000/h; stop when nobody moves, a set of bids repeats (cycle), or after 5 rounds
+- **Bid only** (no withholding): Stage 3 found raising the bid always beat withholding and the joint search gained 0%; 4× faster
+- **Tie check:** flags any day where two firms with the same cost bid the same raised price
+
+**Hypotheses:** (1) every big firm marks up on most days, not only tight ones; (2) prices together higher than any one firm alone; (3) some days cycle.
+
+**Result (runtime ~1 min):**
+- ✅ (1) Alone, each firm marks up on **45–82%** of the sample days, slack days included (median consumer cost increase 4.4%, max 147%)
+- ❌ (2) **Together ≈ worst single firm**, within Rs 0–310/MWh (usually ≤ 21): consumers pay **+138%** on the two tightest days (Rs ~122 crore/h), **+17% to +22%** on five moderate and slack days, ~0–5% on the rest
+- ❌ (3) **All 11 days converge** in 1–2 rounds; no ties
+- **One firm leads, the others free-ride** (a price umbrella): on 9 of 11 days only one firm marks up (two on one day, none on one). Once a leader raises the price, rivals do better bidding cost and selling everything at the high price than undercutting. Each firm's total profit is higher in equilibrium than when it acts alone
+- **Who leads isn't determined, the price nearly is:** reversing the move order (Gujarat first) changes the leader on 8 of 11 days, but prices move by at most Rs 200/MWh (usually < 30). Several equilibria, almost the same consumer cost: **"how much consumers pay" is robust, "which firm" is not**
+- **Rivals don't discipline each other** in this market: five strategic firms give about the same prices as the worst one alone
+- **Step structure matters, not only tightness:** no firm marks up on 4 Apr 2024 (12% spare; the price is set above the big firms' costs, no step to move); two 17%-spare days give +2% and +17%
+- True generation cost up only 0–6%: the harm is in prices
+
+**Caveats:** one firm per state (upper bound); 5 strategic firms; bid only; 11 days. Full runs deferred.
+
+**Output:** `data/processed/strategic_sample_results.csv` (110 rows). Notebook `15_market_power_sample.ipynb`.
+
+### Step 26 — Part 3 report (2026-10-27)
+**What:** `reports/part3_strategic_bidding.md` (summary, set-up, method, results for Stages 1–3 and the sample study, hypothesis scorecard, limitations, deferred work) and `reports/make_part3_figures.py` (4 figures in `reports/figures/p3_fig*.png`, made from the saved results; figure 2 re-runs the four Stage 3 searches, ~6 s). README: Part 3 section, status, progress log Days 18–19. Numbers in the report checked against `strategic_sample_results.csv` and Steps 22–25.
