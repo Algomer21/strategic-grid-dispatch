@@ -261,7 +261,7 @@ class LossDispatchModel:
                        [(0, None)] * nS +
                        [(0, None)] * nP)
 
-    def solve(self, demand, availability=None):
+    def solve(self, demand, availability=None, costs=None):
         """
         Dispatch one day. `demand` is a Series indexed by state (MW).
 
@@ -269,10 +269,26 @@ class LossDispatchModel:
         ("Coal") for every state, or a (state, fuel) pair (("Gujarat", "Wind")) for one
         state; a pair wins over its fuel. None keeps the limits the model was built
         with. Only the bounds change; the constraint matrix is reused.
+
+        `costs` replaces blocks' true costs with bids (Rs/MWh) for this day only (Part 3).
+        Same keys as `availability`; blocks not given bid their true cost. Every bid must
+        be below VOLL, otherwise the LP could not tell the bid from leaving demand unserved.
+        The result's `generation` table keeps the true cost and adds a `Bid` column.
         """
         b_eq = demand.reindex(self.states).to_numpy(dtype=float)
         if np.isnan(b_eq).any():
             raise ValueError("Demand missing for some states")
+
+        c = self.c
+        bid = self.gen["Marginal_Cost_Rs_per_MWh"].to_numpy(dtype=float)
+        if costs is not None:
+            given = [costs.get((s, f), costs.get(f)) for s, f in zip(self.gen["State"], self.gen["Fuel_Type"])]
+            bid = np.array([b if g is None else g for b, g in zip(bid, given)], dtype=float)
+            too_high = [g for g in given if g is not None and g >= self.voll]
+            if too_high:
+                raise ValueError(f"Bids must be below VOLL ({self.voll}): got {sorted(set(too_high))}")
+            c = self.c.copy()
+            c[:self.u_start] = bid
 
         bounds = self.bounds
         if availability is not None:
@@ -283,13 +299,13 @@ class LossDispatchModel:
                 raise ValueError("Availability missing for some fuels")
             bounds = [(0, c) for c in cap] + self.bounds[len(self.gen):]
 
-        res = linprog(c=self.c, A_eq=self.A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+        res = linprog(c=c, A_eq=self.A_eq, b_eq=b_eq, bounds=bounds, method="highs")
         if not res.success:
             raise RuntimeError(f"LP failed: {res.message}")
 
         x = res.x
         generation = self.gen.assign(Available_MW=[ub for _, ub in bounds[:self.u_start]],
-                                     Dispatch_MW=x[:self.u_start])
+                                     Bid=bid, Dispatch_MW=x[:self.u_start])
 
         sent = x[self.f_start:]
         used = sent > 1e-6

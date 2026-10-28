@@ -64,6 +64,12 @@ Run the checks for everything in `src/`:
 | `10_price_forecast` | Forecasts tomorrow's prices through the dispatch model (Route B) and directly (Route A); splits the error into demand and supply causes; price ranges and a tightness index for Part 3 |
 | `11_scenarios` | What-if shocks through dispatch (demand +5%, drought, low-wind monsoon, coal shortage, all four) and price-forecast errors near coal-tier steps |
 | `12_part3_package` | Assembles the forecast package for Part 3 (demand, supply, price, ranges, tightness, step flag) and shows the IEX bid-area price hook |
+| `13_market_structure` | Part 3: gives every generator block a firm (its state) and a bidding role; capacity shares, HHI, Residual Supply Index and pivotal firms on each day; bids and withholding inside the dispatch model (checked on hand and known answers) |
+| `14_strategic_bidding` | Part 3: one firm's most profitable bid and withholding on a day, everyone else at cost; UP on a pivotal, a near-step, an ordinary and a slack day; timing |
+| `15_market_power_sample` | Part 3: the 5 largest firms on 11 days across tightness bands, each alone and all together (equilibrium); move-order check |
+| `16_bidding_with_forecasts` | Part 3: UP and Maharashtra choose bids on Part 2's day-ahead forecasts (or yesterday, or a scenario average) on all 396 days; the market clears on the actual day; do forecast warning flags predict market-power days? |
+| `17_what_ifs` | Part 3: all 24 large firms in equilibrium on 60 days under a lower price cap, 50% contracts, a coal shortage and demand +5% |
+| `15_market_power_all_days` | Part 3 full runs (all 396 days, 24 firms): **deferred**, built but not yet run (`src/run_part3.py`) |
 
 Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
@@ -92,13 +98,25 @@ Day-ahead forecasts: on day D, forecast D+1 for every state. Full write-up: [`re
 
 Main limitations: the "actual" price is the model's own (not IEX); availability truth is modelled, not measured; 13 scored months with real forecasts; daily peak only.
 
+## Strategic bidding (Part 3)
+
+Large generators bid above cost; how much does it cost consumers? Full write-up: [`reports/part3_strategic_bidding.md`](reports/part3_strategic_bidding.md).
+
+- **Firms:** one per state; coal, lignite, gas and hydro bid strategically (cost + adder, at most Rs 8,990), solar and wind are must-run, nuclear and others bid cost
+- **Structure:** HHI 696 ("unconcentrated"), yet a firm is pivotal on 53 of 396 days (UP on all 53), mostly in winter
+- **One firm:** a pivotal UP almost triples its profit and consumers pay +139%; even on the slackest day UP doubles its profit (+21% for consumers) by bidding just under the next coal-cost step
+- **Five firms together (11-day sample):** prices end up about where the worst single firm puts them; one firm leads and the rest free-ride (a price umbrella)
+- **Bidding on forecasts (396 days, UP and Maharashtra):** bids chosen on Part 2's forecasts keep 71–83% of the perfect-foresight gain (yesterday's bid: 43–62%), and consumers pay about as much as with perfect foresight. Market power shows up on half of all days, most often at 20–30% spare capacity, so tightness and near-step flags catch under half of those days
+- **What-ifs (24 firms, 60 days):** a Rs 5,000 price cap halves the average markup (24.5% → 11.6%) and cuts the highest from 140% to 23%; a 10% coal shortage or 5% more demand raises the equilibrium price about 2.5× as much as the competitive price; the effect of 50% contracts is not robust (a third of the days don't settle with 24 firms)
+- **Deferred:** full 396-day, 24-firm runs (code ready in `src/run_part3.py`)
+
 ## Workflow
 
 For each new feature: write the expected result → solve a tiny case by hand → code it in a notebook → test hand answers and edge cases → sanity-check against real-world numbers → move the working function to `src/` → commit → add a line to the progress log.
 
 ## Status
 
-🚧 Ongoing. Part 1 (dispatch) and Part 2 (forecasting) complete; Part 3 (strategic bidding) next.
+🚧 Ongoing. Part 1 (dispatch) and Part 2 (forecasting) complete. Part 3 (strategic bidding): structure, one-firm and sample equilibrium results written up; bidding on forecasts (all 396 days) and what-ifs (60 days) done; 24-firm full-year runs deferred.
 
 ## Progress Log
 
@@ -119,3 +137,7 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 15:** Stress-tested the market. One year of demand growth (+5%) raises prices 7.5%; a coal shortage is the biggest single shock (+23%, shortages on 17 days); all four shocks together double the price, because pressures compound near the top of the supply curve. A fifth of days sit near a coal-tier step, where price-forecast errors are 3.6× larger.
 - **Day 16:** Packaged everything Part 2 knows about tomorrow for Part 3 (demand, supply, price, ranges, tightness, a near-step flag), built the hook for comparing with real IEX prices by bid area, wrote the Part 2 report and re-ran notebooks 05–12 end to end. Part 2 complete.
 - **Day 17:** Planned Part 3 (strategic bidding, [`docs/part3_plan.md`](docs/part3_plan.md)): one firm per state bidding cost + an adder and able to withhold coal, lignite, gas and hydro, with solar and wind must-run; a one-day bidding game solved by trying every bid through the dispatch model, then best responses between firms. A first check on Part 2's weather-based run: some firm is pivotal (the market can't be served without it) on 53 of 396 days in Mar 2024 – Mar 2025, and nine firms are pivotal at least once.
+- **Day 18:** Part 3, Stages 0–3: firms and bidding roles; market structure (HHI 696 yet 53 pivotal days, mostly in winter); bids inside the dispatch model (highest bid lowered to Rs 8,990 after a cap at 9,990 caused artificial blackouts through losses); one firm's best bid on four kinds of day: market power appears even on slack days, at the coal-cost steps.
+- **Day 19:** Part 3 sample study: the five largest firms on 11 days, alone and in equilibrium. Rivals don't compete prices down: one firm leads and the rest free-ride. Full-year runs deferred. Wrote the Part 3 report.
+- **Day 20:** Part 3, Stage 6: UP and Maharashtra bid on Part 2's day-ahead forecasts on all 396 days. Forecasts keep 71–83% of the perfect-foresight gain and beat yesterday's bid; averaging over demand scenarios turned out to be the riskiest rule. Market power appears on half of all days, most often at 20–30% spare capacity, so tightness and step flags catch under half of them.
+- **Day 21:** Part 3, Stage 7: all 24 large firms in equilibrium on 60 days under four what-ifs. A Rs 5,000 price cap halves markups; a coal shortage or higher demand more than doubles them, since scarcity turns ordinary days into pivotal ones; the effect of contracts depends on the third of days where 24 firms don't settle in 5 rounds.

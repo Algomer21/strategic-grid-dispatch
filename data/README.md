@@ -296,3 +296,78 @@ What was known on day D about day D+1, per state and India, Mar 2024 – Mar 202
 | Price_up2pct_forecast | National price if forecast demand were 2% higher (same on every row of a day) |
 | Near_step_forecast, Near_step_actual | True if +2% demand raises the national price ≥ 100 Rs/MWh (forecast inputs / actual inputs) |
 
+
+### market_structure_daily.csv
+Part 3, Stage 1: each firm's market position on each day, Mar 2024 – Mar 2025 (11,880 rows = 396 days × 30 firms with strategic blocks). Made in `13_market_structure.ipynb` (model log Step 22).
+
+| Column | Meaning |
+|---|---|
+| Date, Firm | Day; firm (= its state, one firm per state) |
+| Strategic_MW | Available MW of the firm's strategic blocks (coal, lignite, gas, hydro), from `availability_daily.csv` |
+| Share | Firm's share of all firms' strategic available MW (0–1) |
+| RSI | Residual Supply Index: (all available MW − Strategic_MW) / (demand + losses of the competitive run) |
+| Pivotal | RSI < 1: the market can't be served without this firm |
+| Near_pivotal | RSI < 1.1. Weak on very tight days: when total supply < 1.1 × requirement (50 days) every firm passes |
+| Region | Part 1 region (descriptive only: no regional market without line limits) |
+
+### market_structure_national_daily.csv
+Part 3, Stage 1: market-wide structure per day (396 rows). Made in `13_market_structure.ipynb`.
+
+| Column | Meaning |
+|---|---|
+| Date | Day |
+| Total_available_MW | Available MW of every block (all roles) |
+| Requirement_MW | Demand + losses in the competitive run (`dispatch_weather_national_daily.csv`) |
+| HHI | Herfindahl–Hirschman Index of strategic available capacity, 0–10,000 |
+| Lowest_RSI, Lowest_RSI_firm | Smallest single-firm RSI and the firm with it |
+| Pivotal_firms, Near_pivotal_firms | Number of firms with RSI < 1 / < 1.1 |
+| Joint2_RSI, Joint3_RSI | RSI of the 2 / 3 largest firms that day taken together |
+| Tightness, Near_step | National actual tightness and near-step flag from `part3_forecast_package.csv` |
+
+### strategic_sample_results.csv
+Part 3, sample study (model log Step 25): the 5 largest firms on 11 days chosen across tightness bands, alone and together (110 rows = 11 days × 5 firms × 2 experiments). Made in `15_market_power_sample.ipynb`. Money columns Rs per peak hour; prices Rs/MWh (demand-weighted average).
+
+| Column | Meaning |
+|---|---|
+| Date, Band, Near_step, Spare % | Day; its tightness band (or `Peak day`); near a coal-tier step; spare capacity % |
+| Experiment | `alone` (this firm bids strategically, everyone else at cost) or `together` (the 5 firms' equilibrium) |
+| Firm, Adder | The firm; its best adder alone / its equilibrium adder (bids = cost + adder + 1, at most Rs 8,990) |
+| Profit_cost, Profit | Its profit at true cost when everyone bids cost / in this experiment |
+| Price_avg_cost, Price_avg | Average price everyone-at-cost / in this experiment |
+| Consumer_cost_cost, Consumer_cost | Σ price × demand, at cost / in this experiment |
+| Unserved_MW | Unserved demand in this experiment |
+| Status, Rounds | Equilibrium only: converged / cycle / round limit; rounds used |
+
+### Strategic-bidding results for all days (Part 3, Stages 4–7) — Stages 6–7 produced, Stages 4–5 DEFERRED
+**Produced:** `strategic_forecast_daily.csv` (Stage 6, model log Step 27), `strategic_whatif_daily.csv` (Stage 7, Step 28). **Not produced yet:** the Stage 4–5 files below, what `src/run_part3.py` will write when those stages are run (held, model log Step 25).
+
+Made by `src/run_part3.py` (one function per stage) and read by notebooks 15–17. Days: 1 Mar 2024 – 31 Mar 2025 (396). Money columns are Rs per peak hour; prices Rs/MWh. "cost" = everyone bids true cost (the competitive benchmark, equal to `dispatch_weather_*`); strategies are **bid only** (cost + adder, no withholding; model log Step 25). Players = the 24 firms with ≥ 1 GW of strategic capacity.
+
+**strategic_single_daily.csv** — Stage 4: each player alone, everyone else at cost (9,504 rows = 396 days × 24 firms).
+
+| Column | Meaning |
+|---|---|
+| Date, Firm | Day; the firm bidding strategically |
+| Adder | Its best adder (strategic blocks bid cost + adder + 1, capped at Rs 8,990) |
+| Profit_cost, Profit_best | The firm's profit (true costs) bidding cost / bidding its best |
+| Price_avg_*, Price_max_* | Demand-weighted average / highest state price (`_cost`, `_best`) |
+| Consumer_cost_*, Generation_cost_* | Σ price × demand; true cost of the generation dispatched |
+| Unserved_MW_*, Profit_total_* | Unserved demand; profit of all generators together |
+
+**strategic_eq_national_daily.csv** — Stage 5: all 24 players together, best-response equilibrium (396 rows). Same `_cost` / `_eq` columns as above, plus `Status` (converged / cycle / round limit), `Rounds` and `Firms_marking_up`.
+
+**strategic_eq_firms_daily.csv** — Stage 5, per firm (9,504 rows): `Date, Firm, Adder, Profit_cost, Profit_eq`.
+
+**strategic_eq_state_daily.csv** — Stage 5, per state (13,068 rows = 396 × 33): `Date, State, Price_cost, Price_eq`.
+
+**strategic_forecast_daily.csv** (produced 27 Oct 2026, 6.3 min) — Stage 6: UP and Maharashtra (each alone) choose a bid on day-before information, the market clears on the actual day (3,960 rows = 396 days × 2 firms × 5 strategies).
+
+| Column | Meaning |
+|---|---|
+| Strategy | `perfect` (best bid for the actual day), `forecast` (best bid on Part 2's median forecast), `robust` (best average profit over the 10% / median / 90% demand forecasts), `persistence` (best bid for yesterday's actual day), `cost` (adder 0) |
+| Adder | The adder that strategy chose |
+| Profit, Price_avg, Consumer_cost, Unserved_MW | Outcome on the **actual** day with that adder |
+
+Forecast scenario for day T: `part3_forecast_package.csv` state demand (`Demand_forecast`, `Demand_Q10`, `Demand_Q90`) + `availability_forecast_test.csv` rows `Model = "best day-ahead"` for solar, wind and hydro (other fuels keep their constant factor, as in Part 2).
+
+**strategic_whatif_daily.csv** (produced 28 Oct 2026, 36 min) — Stage 7: the 24-firm equilibrium on a 60-day sample (spread evenly over spare capacity) under five what-ifs (300 rows). Same columns as `strategic_eq_national_daily.csv` plus `What_if`: `Base`; `Cap Rs 5,000` (bids at most Rs 4,490); `Contracts 50%` (each firm sold half its at-cost output forward, as a contract for differences at its home state); `Coal -10%` (coal availability × 0.9); `Demand +5%`. `Status`: converged / round limit / cycle; on the last two the row is where the 5th round stopped (model log Step 28). The `_cost` columns are re-run under each what-if.
