@@ -3,8 +3,8 @@ Part 3 runs over many days (Stages 4-7). Each stage writes CSVs to data/processe
 the notebooks (15-17) read them; a notebook re-runs a stage only if its file is missing.
 
 From the project root:   .venv/bin/python src/run_part3.py [stage4|stage5|stage6|stage7|all]
-Run time on 9 worker processes: Stage 4 ~16 min, Stage 5 ~60 min, Stage 6 ~3 min,
-Stage 7 ~6 min.
+Run time on 9 worker processes: Stage 4 ~16 min (estimate), Stage 5 ~50-60 min (estimate, from
+Stage 7's 300 24-firm days in 36 min), Stage 6 6.3 min, Stage 7 36 min.
 """
 
 import sys

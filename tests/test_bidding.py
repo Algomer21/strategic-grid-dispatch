@@ -207,6 +207,26 @@ def test_bid_at_cap_never_causes_a_blackout_on_the_real_grid():
         assert out["states"]["Price"].max() < VOLL
 
 
+def test_lower_cap_keeps_bids_and_prices_under_5000():
+    # Stage 7 what-if: a Rs 5,000 cap means bids stop at 5,000 x (1 - LOSS_MAX) - 10 = 4,490
+    from dispatch import LOSS_MAX
+    date = pd.Timestamp("2025-01-30")
+    gen = load_generators()
+    blocks = firm_blocks(gen)
+    demand = load_demand()
+    states = list(demand.columns)
+    model = LossDispatchModel(gen, loss_matrix(load_coordinates(), states), states)
+    daily = pd.read_csv(Path(__file__).resolve().parent.parent / "data/processed/availability_daily.csv",
+                        parse_dates=["Date"])
+    avail = daily_availability_lookup(daily[daily["Date"] == date])[date]
+    cap_bid = 5000 * (1 - LOSS_MAX) - 10
+    bids = make_bids(blocks, {"NR UP": 20000, "WR Maharashtra": 20000}, cap_bid)
+    assert max(bids.values()) == cap_bid
+    out = model.solve(demand.loc[date], avail, costs=bids)
+    assert out["states"]["Unserved_MW"].sum() == pytest.approx(0, abs=1e-6)
+    assert out["states"]["Price"].max() <= 5000
+
+
 
 # ---------------------------------------------------------------------------
 # Stage 3: one strategic firm

@@ -27,6 +27,7 @@ national = pd.read_csv(PROCESSED / "market_structure_national_daily.csv", parse_
 structure = pd.read_csv(PROCESSED / "market_structure_daily.csv", parse_dates=["Date"])
 sample = pd.read_csv(PROCESSED / "strategic_sample_results.csv", parse_dates=["Date"])
 forecast = pd.read_csv(PROCESSED / "strategic_forecast_daily.csv", parse_dates=["Date"])
+whatif = pd.read_csv(PROCESSED / "strategic_whatif_daily.csv", parse_dates=["Date"])
 
 
 # 1. Concentration vs pivotal firms (Stage 1)
@@ -141,6 +142,30 @@ ax[1].set_ylabel("Days with market power (%)")
 ax[1].set_title(f"Market power on {int(power.sum())} of {len(power)} days: not only tight ones")
 plt.tight_layout()
 fig.savefig(OUT / "p3_fig5_forecasts.png", bbox_inches="tight")
+plt.close(fig)
+
+# 6. What-ifs (Stage 7): average markup by spare capacity under each what-if
+whatif["Markup"] = 100 * (whatif["Price_avg_eq"] / whatif["Price_avg_cost"] - 1)
+whatif["Band"] = pd.cut(whatif["Date"].map(national["Tightness"]), [0, 0.10, 0.15, 0.20, 0.30, 1.0],
+                        labels=["≤10%", "10–15%", "15–20%", "20–30%", ">30%"])
+names = whatif["What_if"].unique().tolist()
+mb = whatif.pivot_table(index="Band", columns="What_if", values="Markup", aggfunc="mean", observed=True)[names]
+avg = whatif.groupby("What_if", sort=False)["Markup"].mean()
+colors = ["tab:gray", "tab:green", "tab:blue", "tab:red", "tab:orange"]
+fig, ax = plt.subplots(1, 2, figsize=(11, 3.4), gridspec_kw={"width_ratios": [1, 2]})
+ax[0].barh(names[::-1], avg[names[::-1]], color=colors[::-1])
+ax[0].set_xlabel("Average markup over competitive price (%)")
+ax[0].set_title("60 days, 24 strategic firms")
+x = np.arange(len(mb))
+for i, (n, col) in enumerate(zip(names, colors)):
+    ax[1].bar(x + (i - 2) * 0.16, mb[n], 0.16, color=col, label=n)
+ax[1].set_xticks(x, mb.index.astype(str))
+ax[1].set_xlabel("Spare capacity (Base)")
+ax[1].set_ylabel("Average markup (%)")
+ax[1].set_title("A cap protects the tightest days; scarcity makes moderate days pivotal")
+ax[1].legend(fontsize=7.5)
+plt.tight_layout()
+fig.savefig(OUT / "p3_fig6_what_ifs.png", bbox_inches="tight")
 plt.close(fig)
 
 print("Saved:", ", ".join(sorted(p.name for p in OUT.glob("p3_*.png"))))

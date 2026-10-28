@@ -582,3 +582,37 @@ A pivotal UP bidding the cap almost triples its profit and more than doubles wha
 **Caveats:** two firms, each alone; days where only a smaller firm has power are missed; bid only; robust without refinement.
 
 **Output:** `data/processed/strategic_forecast_daily.csv` (3,960 rows). Notebook `16_bidding_with_forecasts.ipynb`. Report section 4.4, figure `p3_fig5_forecasts.png`.
+
+### Step 28 — What-ifs: price cap, contracts, coal shortage, demand (Stage 7, 2026-10-28)
+**Question:** how do policy changes and stress change the market power found in Steps 24–25?
+
+**Decisions (user):**
+1. **All 24 firms (≥ 1 GW) × 60 days** spread evenly over spare capacity, as drafted. Timing two days first: 16 s (30 Jan 2025, converged) and 42 s (25 Aug 2024, **cycle**), so 24 firms can cycle where 5 did not
+2. **Cycle days kept as drafted:** the result is where the iteration stopped, flagged in `Status`. Shown over all days and over days that settle under every what-if
+
+**What-ifs** (code from the parallel session, reviewed: `WHAT_IFS` / `_eq_jobs` / `stage7` in `src/run_part3.py`, `job_equilibrium` and `contract_profit` in `src/bidding.py`): Base; **Cap Rs 5,000** (bids ≤ 4,490 = 5,000 × 0.9 − 10); **Contracts 50%** (each firm sold half its at-cost output forward as a contract for differences at its home price); **Coal −10%** (coal factor 0.75 → 0.675 everywhere; checked that the key reaches `solve()`); **Demand +5%**. Each what-if's competitive benchmark is re-run under the same change.
+
+**Check added:** `test_lower_cap_keeps_bids_and_prices_under_5000` (UP and Maharashtra at the highest bid under the Rs 5,000 cap on 30 Jan 2025: no unserved demand, every price ≤ 5,000). 113 tests pass.
+
+**Hypotheses (before the run):** the lower cap bites only on the tightest days; contracts roughly halve markups; stress raises market power more than the competitive price; 24 firms ≈ the 5-firm sample.
+
+**Result** (36 min on 9 processes, not the ~6 min estimated: many days use all 5 rounds):
+- **Settling:** Base 41 of 60 converge, 16 round limit, 3 cycle (other what-ifs: 37–46 converge). Settled days have exactly one firm marking up; unsettled days 3–6. **21 days settle under every what-if**
+- **Unserved demand** only on 5 rows (Coal −10%: 31 Jan, 10 Feb, 18 Feb 2025; Demand +5%: 31 Jan, 10 Feb): real shortages, also at cost, no firm marking up
+
+| What-if | Avg markup, all 60 days | Avg markup, 21 settled | Highest | Competitive / equilibrium price vs Base | Extra consumer cost (Rs crore/h) |
+|---|---|---|---|---|---|
+| Base | 24.5% | 29.9% | 140% | — | 19.1 |
+| Cap Rs 5,000 | 11.6% | 12.6% | 23% | 0% / −12% | 7.8 |
+| Contracts 50% | 13.9% | 26.4% | 137% | 0% / −9% | 10.9 |
+| Coal −10% | 51.9% | 41.9% | 141% | +18% / +43% | 44.3 |
+| Demand +5% | 50.4% | 37.2% | 141% | +13% / +35% | 44.3 |
+
+- ❌ **The cap works more widely than expected:** average markup halves, highest 140% → 23%; tightest days (≤ 10% spare, 7 days) 121% → 15%
+- ⚠️ **Contracts: not robust.** Halved over all days, but 30% → 26% on settled days; the difference comes from unsettled days ending elsewhere. Tightest days 121% → 68%
+- ✅ **Stress multiplies market power:** equilibrium price rises ~2.5× as much as the competitive price; 10–15%-spare days become pivotal (markup 10% → 133%)
+- ✅ **24 firms ≈ 5 firms** by band (the samples share no days): tightest days +121% vs +138% (sample study)
+
+**Caveats:** 60 days; a third of days don't settle in 5 rounds; one firm per state; bid only.
+
+**Output:** `data/processed/strategic_whatif_daily.csv` (300 rows). Notebook `17_what_ifs.ipynb`. Report section 4.5, figure `p3_fig6_what_ifs.png`.

@@ -338,8 +338,8 @@ Part 3, sample study (model log Step 25): the 5 largest firms on 11 days chosen 
 | Unserved_MW | Unserved demand in this experiment |
 | Status, Rounds | Equilibrium only: converged / cycle / round limit; rounds used |
 
-### Strategic-bidding results for all days (Part 3, Stages 4–7) — Stage 6 produced, Stages 4, 5, 7 DEFERRED
-**Produced:** `strategic_forecast_daily.csv` (Stage 6, model log Step 27). **Not produced yet:** the other files below, what `src/run_part3.py` will write when Stages 4, 5 and 7 are run (held, model log Step 25).
+### Strategic-bidding results for all days (Part 3, Stages 4–7) — Stages 6–7 produced, Stages 4–5 DEFERRED
+**Produced:** `strategic_forecast_daily.csv` (Stage 6, model log Step 27), `strategic_whatif_daily.csv` (Stage 7, Step 28). **Not produced yet:** the Stage 4–5 files below, what `src/run_part3.py` will write when those stages are run (held, model log Step 25).
 
 Made by `src/run_part3.py` (one function per stage) and read by notebooks 15–17. Days: 1 Mar 2024 – 31 Mar 2025 (396). Money columns are Rs per peak hour; prices Rs/MWh. "cost" = everyone bids true cost (the competitive benchmark, equal to `dispatch_weather_*`); strategies are **bid only** (cost + adder, no withholding; model log Step 25). Players = the 24 firms with ≥ 1 GW of strategic capacity.
 
@@ -370,4 +370,4 @@ Made by `src/run_part3.py` (one function per stage) and read by notebooks 15–1
 
 Forecast scenario for day T: `part3_forecast_package.csv` state demand (`Demand_forecast`, `Demand_Q10`, `Demand_Q90`) + `availability_forecast_test.csv` rows `Model = "best day-ahead"` for solar, wind and hydro (other fuels keep their constant factor, as in Part 2).
 
-**strategic_whatif_daily.csv** — Stage 7: the Stage 5 equilibrium on a 60-day sample (spread evenly over spare capacity) under five what-ifs (300 rows). Same columns as `strategic_eq_national_daily.csv` plus `What_if`: `Base`; `Cap Rs 5,000` (bids at most Rs 4,490); `Contracts 50%` (each firm sold half its at-cost output forward, as a contract for differences at its home state); `Coal -10%` (coal availability × 0.9); `Demand +5%`.
+**strategic_whatif_daily.csv** (produced 28 Oct 2026, 36 min) — Stage 7: the 24-firm equilibrium on a 60-day sample (spread evenly over spare capacity) under five what-ifs (300 rows). Same columns as `strategic_eq_national_daily.csv` plus `What_if`: `Base`; `Cap Rs 5,000` (bids at most Rs 4,490); `Contracts 50%` (each firm sold half its at-cost output forward, as a contract for differences at its home state); `Coal -10%` (coal availability × 0.9); `Demand +5%`. `Status`: converged / round limit / cycle; on the last two the row is where the 5th round stopped (model log Step 28). The `_cost` columns are re-run under each what-if.

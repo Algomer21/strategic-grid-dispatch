@@ -9,7 +9,8 @@ Agreed 2026-10-25 while Part 2 was being built; updated 2026-10-26 after Part 2 
 - Stages 0–3 done (model log Steps 21–24)
 - **Stages 4–5: reduced to a sample study** (5 largest firms × 11 days across tightness bands, alone and in equilibrium; `15_market_power_sample.ipynb`, Step 25)
 - **Stage 6 done** on all 396 days for UP and Maharashtra (`16_bidding_with_forecasts.ipynb`, Step 27); market-power days defined from this run, not Stage 5
-- **Deferred:** the full runs over all 396 days with 24 firms (Stages 4–5) and what-ifs (Stage 7). Code ready: `src/run_part3.py` (`stage4` … `stage7`, parallel), notebooks `15_market_power_all_days`, `16_bidding_with_forecasts`, `17_what_ifs` (not yet run or reviewed). Estimated runtime on 9 worker processes: Stage 4 ~16 min, Stage 5 ~60 min, Stages 6–7 ~10 min
+- **Stage 7 done:** 24 firms × 60 days × 5 what-ifs (`17_what_ifs.ipynb`, Step 28)
+- **Deferred:** the full runs over all 396 days with 24 firms (Stages 4–5). Code ready: `src/run_part3.py` (`stage4`, `stage5`, parallel), notebook `15_market_power_all_days` (not yet run). Estimated runtime on 9 worker processes: Stage 4 ~16 min, Stage 5 ~50–60 min (Stage 7: 300 24-firm days in 36 min)
 
 ## Goal
 
