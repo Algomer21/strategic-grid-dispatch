@@ -11,6 +11,16 @@ This project simulates how a real electricity market clears prices using merit-o
 
 Question 2 is Part 3 of the project; its plan (firms, the bidding game, how Parts 1 and 2 feed it) is in [`docs/part3_plan.md`](docs/part3_plan.md).
 
+## Key findings
+
+| Part | Question | Answer |
+|---|---|---|
+| **1. Dispatch** | Can a cost-based market model reproduce how Indian prices form? | A state-level linear program with transmission losses gives daily locational peak prices of Rs 1,650–3,770/MWh. Prices move in **steps** set by the coal cost tiers, and losses are 3.8% of traded power |
+| **2. Forecasting** | Can tomorrow's demand, renewables and prices be forecast better than "same as today"? | **Yes:** demand 48% better, solar 33%, wind 49%, national price 53%, using bias-corrected real weather forecasts. The price must be forecast **through the dispatch model**: a model of the price's own history fails because it can't see the steps |
+| **3. Strategic bidding** | When large generators bid above cost, when and where does market power show up, who has it, and what does it cost consumers? | **When:** on tight winter days a pivotal firm pushes prices close to the cap (consumers +138%), and on half of all days a large firm can raise prices up to the next coal-cost step. **Who:** the big central and western coal states, led by UP. **Rivals don't stop it:** one firm leads and the rest free-ride. **What limits it:** a lower price cap halves markups, and scarcity roughly doubles them. Low concentration (HHI 696) and simple tightness flags miss most of it |
+
+Reports: [Part 2](reports/part2_forecasting.md) · [Part 3](reports/part3_strategic_bidding.md). Every modelling decision and check is in [`docs/model_log.md`](docs/model_log.md).
+
 ## Tech Stack
 
 - **Language:** Python
@@ -116,7 +126,14 @@ For each new feature: write the expected result → solve a tiny case by hand �
 
 ## Status
 
-🚧 Ongoing. Part 1 (dispatch) and Part 2 (forecasting) complete. Part 3 (strategic bidding): structure, one-firm and sample equilibrium results written up; bidding on forecasts (all 396 days) and what-ifs (60 days) done; 24-firm full-year runs deferred.
+✅ Complete. All three parts are done, tested (113 automated checks) and written up.
+
+Possible extensions:
+- Run the deferred 24-firm Stages 4–5 over all 396 days (code ready in `src/run_part3.py`, ~50–60 min each)
+- Split each state's generation between its real owners (NTPC, state utilities, private companies) instead of one firm per state
+- Add transmission limits, so regional markets can separate
+- Compare model prices with real IEX day-ahead prices (hook ready in `src/prices.py`)
+- Plant-level costs instead of one cost per state × fuel block, and hourly instead of daily peak
 
 ## Progress Log
 
@@ -141,3 +158,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 19:** Part 3 sample study: the five largest firms on 11 days, alone and in equilibrium. Rivals don't compete prices down: one firm leads and the rest free-ride. Full-year runs deferred. Wrote the Part 3 report.
 - **Day 20:** Part 3, Stage 6: UP and Maharashtra bid on Part 2's day-ahead forecasts on all 396 days. Forecasts keep 71–83% of the perfect-foresight gain and beat yesterday's bid; averaging over demand scenarios turned out to be the riskiest rule. Market power appears on half of all days, most often at 20–30% spare capacity, so tightness and step flags catch under half of them.
 - **Day 21:** Part 3, Stage 7: all 24 large firms in equilibrium on 60 days under four what-ifs. A Rs 5,000 price cap halves markups; a coal shortage or higher demand more than doubles them, since scarcity turns ordinary days into pivotal ones; the effect of contracts depends on the third of days where 24 firms don't settle in 5 rounds.
+- **Day 22:** Part 3 merged into main (PR #5). Project complete: key findings added at the top of this README.
