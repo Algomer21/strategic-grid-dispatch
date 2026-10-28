@@ -12,6 +12,7 @@ What happens to India's electricity prices when large generators bid above their
 | **Who?** | The big central and western coal states: UP (pivotal on 53 of 396 days), Maharashtra (26), Chhattisgarh (21), MP (17), Gujarat (9) |
 | **How much?** | Up to **Rs ~122 crore per peak hour** on the tightest days; Rs 9–15 crore per peak hour on moderate and slack days with a +17–22% markup |
 | **Does competition limit it?** | **No.** With the five largest firms all bidding strategically, prices end up about where the worst single firm alone would put them. One firm raises its bid; the others keep bidding cost and sell everything at the higher price (a *price umbrella*) |
+| **Can firms see it coming?** | **Mostly.** Bidding on Part 2's day-ahead forecasts, UP and Maharashtra keep 71–83% of the profit they would make with perfect foresight, and consumers pay about as much. But simple warning flags (forecast spare capacity < 15%, near a coal-cost step) catch under half of the market-power days |
 | **Does the usual test catch it?** | **Only partly.** Market concentration (HHI 696) looks harmless. The Residual Supply Index finds the 53 tight days, but misses market power on ordinary days, which comes from the **steps** in the supply curve, not from scarcity |
 
 All results come from the Part 1 dispatch model (state-level, with transmission losses and locational prices) run on Part 2's weather-based supply for March 2024 – March 2025 (396 days). "UP", "Maharashtra" etc. are firms that own **all** of their state's coal, lignite, gas and hydro, so the numbers are an **upper bound** on real market power.
@@ -101,6 +102,32 @@ The five largest firms (UP, Maharashtra, Chhattisgarh, MP, Gujarat; 45% of strat
 
 **Who leads isn't determined, but the price nearly is.** Changing the order in which firms move (Gujarat first instead of UP) changes the leader on 8 of 11 days, but prices by at most Rs 200/MWh. So *how much consumers pay* is a robust result; *which firm* exercises the power is not.
 
+### 4.4 Bidding on forecasts (Stage 6, all 396 days)
+
+A firm must choose tomorrow's bid today. UP and Maharashtra (each alone, everyone else at cost) choose their bid with five rules, then the market clears on the **actual** day:
+
+| Rule | The firm picks the best bid for… |
+|---|---|
+| Perfect foresight | the actual day (upper bound) |
+| **Part 2 forecast** | Part 2's median forecast of demand, solar, wind and hydro |
+| Scenario average ("robust") | the average over the low, median and high demand forecasts |
+| Yesterday (persistence) | yesterday's actual day |
+| Cost | no markup |
+
+![Bidding on forecasts](figures/p3_fig5_forecasts.png)
+
+| | UP | Maharashtra |
+|---|---|---|
+| Days marking up pays (perfect foresight) | 162 | 295 |
+| Share of the perfect-foresight gain: forecast / scenario average / yesterday | **71%** / 66% / 43% | **83%** / 62% / 62% |
+| Days the forecast bid earns less than bidding cost | 39 | 22 |
+| Days the scenario-average bid earns less than bidding cost | 43 | 83 |
+
+- **Forecasts are worth money to a strategic firm:** they keep most of the gain and beat "tomorrow = today" by 20–28 points
+- **Averaging over scenarios is the riskiest rule, not the safest.** In the high-demand scenario a high bid pays enormously (near the cap), so the average favours high bids, and on an ordinary day the firm prices itself out
+- **Forecast errors don't protect consumers:** consumer cost rises about as much with forecast bids as with perfect foresight (UP +17.6% vs +16.9%)
+- **Warning flags catch market power only partly.** On 203 of 396 days UP or Maharashtra can raise the average price by ≥ 5%. Forecast spare capacity < 15% or a near-step flag catches 43% of those days, with half of the flagged days right. Flags computed from the *actual* day do little better (48%), so the weakness is the flags, not the forecasts: market power is most common at **20–30% spare capacity** (74% of days), where a firm can price up to the next coal-cost step
+
 ## 5. What surprised us
 
 Hypotheses were written down before each run.
@@ -114,6 +141,9 @@ Hypotheses were written down before each run.
 | On a slack day, bidding cost is best | ❌ UP doubles its profit |
 | Several strategic firms push prices higher than one | ❌ About the same: one leads, the rest free-ride |
 | Some equilibria cycle | ❌ All converge |
+| Forecast bids keep > 80% of the perfect-foresight gain | ✅ Maharashtra 83%, ❌ UP 71% |
+| A scenario-average bid is safer | ❌ It loses most often |
+| Forecast tightness flags market-power days | Only partly: 43% caught; market power peaks at 20–30% spare |
 
 Two mistakes were caught by testing on the real grid, not on toy cases:
 - A first price-cap rule (highest bid Rs 9,990) caused **14,390 MW of artificial blackout** when UP bid the cap: transmission losses pushed the delivered price above the cap, so distant states "preferred" a blackout. Fixed by lowering the highest bid to Rs 8,990
@@ -124,19 +154,19 @@ Two mistakes were caught by testing on the real grid, not on toy cases:
 - **One firm per state.** Real ownership within a state is split between NTPC, state utilities and private companies, so these markups are an **upper bound**
 - **Stepped costs.** Each state × fuel block has one cost; real plants have a spread of costs, which would smooth the steps that drive much of the market power found here
 - **Sample, not the full year,** for the equilibrium (11 days, 5 firms). The other 19 large firms bid cost
+- **Stage 6 uses two firms, each alone,** to define market-power days; days where only a smaller firm has power are missed
 - **No transmission limits** (losses only), so the market is national. Congestion could split it into regions where single firms are stronger (UP holds 46% of the North's strategic capacity)
 - **No long-term contracts.** In India most generation is sold under long-term power purchase agreements; a firm with its output contracted has little reason to raise the spot price
 - **Bid only** in the equilibrium (withholding never helped in the one-firm search); a one-day game (hydro can't save water between days); daily peak only, no hourly bidding
 
 ## 7. Deferred work
 
-Built and tested but not yet run (`src/run_part3.py`; notebooks `15_market_power_all_days`, `16_bidding_with_forecasts`, `17_what_ifs`; `docs/part3_plan.md`):
+Built and tested but not yet run (`src/run_part3.py`; notebooks `15_market_power_all_days`, `17_what_ifs`; `docs/part3_plan.md`):
 
 | Stage | What | Estimated runtime (9 processes) |
 |---|---|---|
 | 4 | Each of the 24 large firms alone, all 396 days | ~16 min |
 | 5 | Equilibrium of all 24 firms, all 396 days | ~60 min |
-| 6 | Firms bid on Part 2's day-ahead forecasts; the market clears on the actual day: what do forecast errors cost a firm, and do forecast-tight days predict market power? | ~3 min |
 | 7 | What-ifs: a lower price cap (Rs 5,000), 50% contracts, a coal shortage, demand +5% | ~6 min |
 
 ## Reproducing
@@ -146,4 +176,4 @@ Built and tested but not yet run (`src/run_part3.py`; notebooks `15_market_power
 .venv/bin/python reports/make_part3_figures.py
 ```
 
-Notebooks `13_market_structure` (structure, bidding tools), `14_strategic_bidding` (one firm), `15_market_power_sample` (alone vs together). Every step, decision and check is in `docs/model_log.md`, Steps 21–25.
+Notebooks `13_market_structure` (structure, bidding tools), `14_strategic_bidding` (one firm), `15_market_power_sample` (alone vs together), `16_bidding_with_forecasts` (Stage 6; `src/run_part3.py stage6`, 6.3 min). Every step, decision and check is in `docs/model_log.md`, Steps 21–27.

@@ -67,7 +67,8 @@ Run the checks for everything in `src/`:
 | `13_market_structure` | Part 3: gives every generator block a firm (its state) and a bidding role; capacity shares, HHI, Residual Supply Index and pivotal firms on each day; bids and withholding inside the dispatch model (checked on hand and known answers) |
 | `14_strategic_bidding` | Part 3: one firm's most profitable bid and withholding on a day, everyone else at cost; UP on a pivotal, a near-step, an ordinary and a slack day; timing |
 | `15_market_power_sample` | Part 3: the 5 largest firms on 11 days across tightness bands, each alone and all together (equilibrium); move-order check |
-| `15_market_power_all_days`, `16_bidding_with_forecasts`, `17_what_ifs` | Part 3 full runs (all 396 days, 24 firms; forecasts; what-ifs): **deferred**, built but not yet run (`src/run_part3.py`) |
+| `16_bidding_with_forecasts` | Part 3: UP and Maharashtra choose bids on Part 2's day-ahead forecasts (or yesterday, or a scenario average) on all 396 days; the market clears on the actual day; do forecast warning flags predict market-power days? |
+| `15_market_power_all_days`, `17_what_ifs` | Part 3 full runs (all 396 days, 24 firms; what-ifs): **deferred**, built but not yet run (`src/run_part3.py`) |
 
 Every modelling step (what, why, assumptions, checks, result) is recorded in [`docs/model_log.md`](docs/model_log.md); every data file is described in [`data/README.md`](data/README.md).
 
@@ -104,7 +105,8 @@ Large generators bid above cost; how much does it cost consumers? Full write-up:
 - **Structure:** HHI 696 ("unconcentrated"), yet a firm is pivotal on 53 of 396 days (UP on all 53), mostly in winter
 - **One firm:** a pivotal UP almost triples its profit and consumers pay +139%; even on the slackest day UP doubles its profit (+21% for consumers) by bidding just under the next coal-cost step
 - **Five firms together (11-day sample):** prices end up about where the worst single firm puts them; one firm leads and the rest free-ride (a price umbrella)
-- **Deferred:** full 396-day, 24-firm runs, bidding on forecasts and what-ifs (code ready in `src/run_part3.py`)
+- **Bidding on forecasts (396 days, UP and Maharashtra):** bids chosen on Part 2's forecasts keep 71–83% of the perfect-foresight gain (yesterday's bid: 43–62%), and consumers pay about as much as with perfect foresight. Market power shows up on half of all days, most often at 20–30% spare capacity, so tightness and near-step flags catch under half of those days
+- **Deferred:** full 396-day, 24-firm runs and what-ifs (code ready in `src/run_part3.py`)
 
 ## Workflow
 
@@ -112,7 +114,7 @@ For each new feature: write the expected result → solve a tiny case by hand �
 
 ## Status
 
-🚧 Ongoing. Part 1 (dispatch) and Part 2 (forecasting) complete. Part 3 (strategic bidding): structure, one-firm and sample equilibrium results written up; full-year runs deferred.
+🚧 Ongoing. Part 1 (dispatch) and Part 2 (forecasting) complete. Part 3 (strategic bidding): structure, one-firm and sample equilibrium results written up; bidding on forecasts done (all 396 days); 24-firm full-year runs and what-ifs deferred.
 
 ## Progress Log
 
@@ -135,3 +137,4 @@ For each new feature: write the expected result → solve a tiny case by hand �
 - **Day 17:** Planned Part 3 (strategic bidding, [`docs/part3_plan.md`](docs/part3_plan.md)): one firm per state bidding cost + an adder and able to withhold coal, lignite, gas and hydro, with solar and wind must-run; a one-day bidding game solved by trying every bid through the dispatch model, then best responses between firms. A first check on Part 2's weather-based run: some firm is pivotal (the market can't be served without it) on 53 of 396 days in Mar 2024 – Mar 2025, and nine firms are pivotal at least once.
 - **Day 18:** Part 3, Stages 0–3: firms and bidding roles; market structure (HHI 696 yet 53 pivotal days, mostly in winter); bids inside the dispatch model (highest bid lowered to Rs 8,990 after a cap at 9,990 caused artificial blackouts through losses); one firm's best bid on four kinds of day: market power appears even on slack days, at the coal-cost steps.
 - **Day 19:** Part 3 sample study: the five largest firms on 11 days, alone and in equilibrium. Rivals don't compete prices down: one firm leads and the rest free-ride. Full-year runs deferred. Wrote the Part 3 report.
+- **Day 20:** Part 3, Stage 6: UP and Maharashtra bid on Part 2's day-ahead forecasts on all 396 days. Forecasts keep 71–83% of the perfect-foresight gain and beat yesterday's bid; averaging over demand scenarios turned out to be the riskiest rule. Market power appears on half of all days, most often at 20–30% spare capacity, so tightness and step flags catch under half of them.

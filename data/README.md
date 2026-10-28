@@ -338,8 +338,8 @@ Part 3, sample study (model log Step 25): the 5 largest firms on 11 days chosen 
 | Unserved_MW | Unserved demand in this experiment |
 | Status, Rounds | Equilibrium only: converged / cycle / round limit; rounds used |
 
-### Strategic-bidding results for all days (Part 3, Stages 4–7) — DEFERRED
-**Not produced yet.** The full runs were held (model log Step 25); the files below are what `src/run_part3.py` will write when run. (An interrupted run on 27 Oct left a local copy of `strategic_forecast_daily.csv`; it was not reviewed and is not committed. Regenerate it with `run_part3.py stage6`.)
+### Strategic-bidding results for all days (Part 3, Stages 4–7) — Stage 6 produced, Stages 4, 5, 7 DEFERRED
+**Produced:** `strategic_forecast_daily.csv` (Stage 6, model log Step 27). **Not produced yet:** the other files below, what `src/run_part3.py` will write when Stages 4, 5 and 7 are run (held, model log Step 25).
 
 Made by `src/run_part3.py` (one function per stage) and read by notebooks 15–17. Days: 1 Mar 2024 – 31 Mar 2025 (396). Money columns are Rs per peak hour; prices Rs/MWh. "cost" = everyone bids true cost (the competitive benchmark, equal to `dispatch_weather_*`); strategies are **bid only** (cost + adder, no withholding; model log Step 25). Players = the 24 firms with ≥ 1 GW of strategic capacity.
 
@@ -360,7 +360,7 @@ Made by `src/run_part3.py` (one function per stage) and read by notebooks 15–1
 
 **strategic_eq_state_daily.csv** — Stage 5, per state (13,068 rows = 396 × 33): `Date, State, Price_cost, Price_eq`.
 
-**strategic_forecast_daily.csv** — Stage 6: UP and Maharashtra (each alone) choose a bid on day-before information, the market clears on the actual day (3,960 rows = 396 days × 2 firms × 5 strategies).
+**strategic_forecast_daily.csv** (produced 27 Oct 2026, 6.3 min) — Stage 6: UP and Maharashtra (each alone) choose a bid on day-before information, the market clears on the actual day (3,960 rows = 396 days × 2 firms × 5 strategies).
 
 | Column | Meaning |
 |---|---|

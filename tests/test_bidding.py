@@ -332,3 +332,26 @@ def test_firm_above_cap_can_still_bid_cost():
     from bidding import bid_candidates
     _, blocks, _ = _toy_market([("A", "Gas", 50, 4500), ("B", "Coal", 100, 2000)], {"A": 70})
     assert bid_candidates(blocks, "A", max_bid=4490) == [0]
+
+
+# ---------- Stage 6: bidding on forecasts ----------
+
+def test_actual_day_as_forecast_matches_perfect_foresight():
+    """If every forecast equals the actual day, forecast and persistence bids must equal perfect foresight."""
+    import bidding
+    bidding._init_worker()
+    d = pd.Timestamp("2024-08-25")
+    daily = pd.read_csv(Path(__file__).resolve().parent.parent / "data/processed/availability_daily.csv",
+                        parse_dates=["Date"])
+    actual = (load_demand().loc[d], daily_availability_lookup(daily[daily["Date"] == d])[d])
+    rows = {r["Strategy"]: r for r in bidding.job_bid_on_forecast(
+        {"date": d, "firm": "NR UP", "actual": actual, "median": actual,
+         "q10": actual, "q90": actual, "yesterday": actual})}
+    perfect = rows["perfect"]
+    assert perfect["Adder"] > 0                                   # UP marks up on this slack day (Stage 3)
+    for s in ["forecast", "persistence"]:
+        assert rows[s]["Adder"] == perfect["Adder"]
+        assert rows[s]["Profit"] == pytest.approx(perfect["Profit"])
+    for s in ["robust", "cost"]:                                  # robust has no refinement step: never above perfect
+        assert rows[s]["Profit"] <= perfect["Profit"] + 1
+    assert all(r["Unserved_MW"] == 0 for r in rows.values())

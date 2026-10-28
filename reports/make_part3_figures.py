@@ -26,6 +26,7 @@ plt.rcParams.update({"figure.dpi": 130, "axes.spines.top": False, "axes.spines.r
 national = pd.read_csv(PROCESSED / "market_structure_national_daily.csv", parse_dates=["Date"]).set_index("Date")
 structure = pd.read_csv(PROCESSED / "market_structure_daily.csv", parse_dates=["Date"])
 sample = pd.read_csv(PROCESSED / "strategic_sample_results.csv", parse_dates=["Date"])
+forecast = pd.read_csv(PROCESSED / "strategic_forecast_daily.csv", parse_dates=["Date"])
 
 
 # 1. Concentration vs pivotal firms (Stage 1)
@@ -109,6 +110,37 @@ ax.set_title("Every firm earns more when another firm leads")
 ax.legend(fontsize=8)
 plt.tight_layout()
 fig.savefig(OUT / "p3_fig4_umbrella.png", bbox_inches="tight")
+plt.close(fig)
+
+# 5. Bidding on forecasts (Stage 6): strategies, and market power by forecast spare capacity
+from forecast import load_forecast_package  # noqa: E402
+w = forecast.pivot_table(index=["Date", "Firm"], columns="Strategy", values="Profit")
+gain = w.sub(w["cost"], axis=0)
+strategies = ["forecast", "robust", "persistence"]
+share = pd.DataFrame({f: [100 * g[s].sum() / g["perfect"].sum() for s in strategies]
+                      for f, g in gain.groupby(level="Firm")}, index=strategies)
+p = forecast.pivot_table(index="Date", columns=["Firm", "Strategy"], values="Price_avg")
+power = pd.DataFrame({f: p[(f, "perfect")] / p[(f, "cost")] - 1 for f in forecast["Firm"].unique()}).max(axis=1) > 0.05
+pkg = load_forecast_package()
+spare = pkg[pkg["Area"] == "National"].set_index("Date")["Tightness_forecast"].reindex(power.index)
+bands = pd.cut(spare, [0, 0.10, 0.15, 0.20, 0.30, 1.0], labels=["≤10%", "10–15%", "15–20%", "20–30%", ">30%"])
+by_band = 100 * power.groupby(bands, observed=True).mean()
+
+fig, ax = plt.subplots(1, 2, figsize=(10, 3.2))
+x = np.arange(len(strategies))
+ax[0].bar(x - 0.2, share["NR UP"], 0.4, color="tab:blue", label="UP")
+ax[0].bar(x + 0.2, share["WR Maharashtra"], 0.4, color="tab:orange", label="Maharashtra")
+ax[0].axhline(100, color="tab:gray", linestyle=":", linewidth=1)
+ax[0].set_xticks(x, ["Part 2 forecast", "Scenario average\n(robust)", "Yesterday\n(persistence)"])
+ax[0].set_ylabel("% of perfect-foresight gain")
+ax[0].set_title("Bidding on what is known the day before")
+ax[0].legend(fontsize=8)
+ax[1].bar(by_band.index.astype(str), by_band.values, color="tab:red")
+ax[1].set_xlabel("Forecast spare capacity")
+ax[1].set_ylabel("Days with market power (%)")
+ax[1].set_title(f"Market power on {int(power.sum())} of {len(power)} days: not only tight ones")
+plt.tight_layout()
+fig.savefig(OUT / "p3_fig5_forecasts.png", bbox_inches="tight")
 plt.close(fig)
 
 print("Saved:", ", ".join(sorted(p.name for p in OUT.glob("p3_*.png"))))

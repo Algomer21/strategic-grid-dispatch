@@ -536,3 +536,49 @@ A pivotal UP bidding the cap almost triples its profit and more than doubles wha
 
 ### Step 26 — Part 3 report (2026-10-27)
 **What:** `reports/part3_strategic_bidding.md` (summary, set-up, method, results for Stages 1–3 and the sample study, hypothesis scorecard, limitations, deferred work) and `reports/make_part3_figures.py` (4 figures in `reports/figures/p3_fig*.png`, made from the saved results; figure 2 re-runs the four Stage 3 searches, ~6 s). README: Part 3 section, status, progress log Days 18–19. Numbers in the report checked against `strategic_sample_results.csv` and Steps 22–25.
+
+### Step 27 — Bidding on Part 2's forecasts (Stage 6, 2026-10-27)
+**Question:** a firm must choose tomorrow's bid today. Using Part 2's forecasts, how much of the perfect-foresight profit does it get, and do Part 2's warning flags (forecast spare capacity, near-step) predict market-power days?
+
+**Decisions (user):**
+1. **All 396 days, UP and Maharashtra** (the two firms most often pivotal), each alone with everyone else at cost, bid only. The 11-day sample would have too few tight days to score a hit rate
+2. **Market-power day** = UP or Maharashtra, with perfect foresight, raises the demand-weighted average price ≥ 5% above competitive. Comes out of this run; the 24-firm Stage 5 equilibrium (~60 min) stays deferred. The notebook's automatic fall-back to running Stage 5 was removed
+
+**Method** (code from the parallel session, reviewed: `job_bid_on_forecast` in `src/bidding.py`, `forecast_scenarios` / `stage6` in `src/run_part3.py`): each strategy picks an adder, then the market clears on the **actual** day with that adder.
+- **perfect:** best response on the actual day (upper bound)
+- **forecast:** best response on Part 2's median forecast (state demand from `part3_forecast_package.csv`; solar, wind, hydro from `availability_forecast_test.csv` "best day-ahead"; other fuels at their constant factor)
+- **robust:** the candidate adder with the best average profit over the 10% / median / 90% demand forecasts (candidate grid, no Rs 25 refinement)
+- **persistence:** best response on yesterday's actual day
+- **cost:** adder 0
+
+**Check added:** `test_actual_day_as_forecast_matches_perfect_foresight` (forecast = yesterday = actual ⇒ forecast and persistence bids and profits equal perfect; robust and cost never above). 112 tests pass.
+
+**Hypotheses (before the run):** forecast bids keep > 80% of the perfect gain and beat persistence; robust bids earn slightly less but lose less on bad days; flags catch market-power days only partly.
+
+**Result** (6.3 min on 9 processes; no unserved power; perfect ≥ cost profit on every day; cost-bid prices equal Part 2's within Rs 0.84/MWh):
+
+| | UP | Maharashtra |
+|---|---|---|
+| Days marking up pays (perfect) | 162 | 295 |
+| Share of perfect gain: forecast / robust / persistence | **71%** / 66% / 43% | **83%** / 62% / 62% |
+| Days forecast bid = perfect bid | 281 | 223 |
+| Days earning less than bidding cost: forecast / robust / persistence | 39 / 43 / 49 | 22 / **83** / 29 |
+| Consumer cost vs all at cost: perfect / forecast / robust | +16.9% / +17.6% / +19.1% | +16.9% / +14.9% / +17.9% |
+
+- ✅/❌ Forecast bids keep 71–83% of the perfect gain; ✅ they beat persistence by 20–28 points
+- ❌ **Robust is the riskiest rule:** the high-demand scenario's near-cap payoff dominates the average, so it bids high and loses volume on ordinary days
+- **Forecast errors don't protect consumers:** prices rise about as much as with perfect foresight
+- **Warning flags (203 market-power days of 396):**
+
+| Flag | Flagged days | Precision | Recall |
+|---|---|---|---|
+| Forecast spare < 15% | 131 | 47% | 30% |
+| Forecast near step | 82 | 57% | 23% |
+| Forecast either | 175 | 50% | 43% |
+| Actual either | 170 | 58% | 48% |
+
+- ✅ Flags catch market power only partly, and **not because of forecast error**: actual-value flags do little better. Share of market-power days by forecast spare capacity: ≤ 10% 69%, 10–15% 34%, 15–20% 54%, **20–30% 74%**, > 30% 25%. Steps in the coal-cost curve decide it, not tightness. Near-step precision falls from 82% (actual) to 57% (forecast)
+
+**Caveats:** two firms, each alone; days where only a smaller firm has power are missed; bid only; robust without refinement.
+
+**Output:** `data/processed/strategic_forecast_daily.csv` (3,960 rows). Notebook `16_bidding_with_forecasts.ipynb`. Report section 4.4, figure `p3_fig5_forecasts.png`.
